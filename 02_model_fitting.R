@@ -1,8 +1,8 @@
 # Load packages
 library(drjacoby)
 library(dplyr)
+library(ggplot2)
 library(patchwork)
-
 
 # Load functions
 source("R/prevalence_incidence.R")
