@@ -1,6 +1,8 @@
 
-gompertz <- function(pfpr, distance, a, b, c, d, e){
-  rlogit(a + d + e * log(distance)) * exp(-exp(b - c * pfpr))
+gompertz <- function(pfpr, distance, global_capacity, country_capacity, distance_beta, pfpr_beta, shift){
+  carrying_capacity <- rlogit(global_capacity + country_capacity + distance_beta * log(distance))
+  est <- carrying_capacity * exp(-exp(shift - pfpr_beta * pfpr))
+  return(est)
 }
 
 # Estimate the probability from log odds
