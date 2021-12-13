@@ -1,3 +1,5 @@
+library(dplyr)
+library(tidyr)
 library(ggplot2)
 library(patchwork)
 
@@ -6,130 +8,224 @@ library(patchwork)
 # Extract estimate of best par
 best_par <- mcmc$output %>%
   filter(phase == "sampling") %>%
-  slice_max(order_by = (logprior + loglikelihood), n = 1) %>%
   select(-c(chain, phase, iteration, logprior, loglikelihood)) %>%
+  summarise_all(median) %>%  #slice_max(order_by = (logprior + loglikelihood), n = 1) %>%
   unlist()
+samples <- sample_chains(mcmc, 500)
 
-## Compare GLM fit to DHS data #################################################
-ccc <- best_par[grepl("ccc", names(best_par))]
-plot(rlogit(best_par["a"] + ccc), ylab = "Asymptotes")
-plot(ccc, ylim = c(-2, 2))
-abline(h = 0)
-abline(h = 1.96 * best_par["group_sd"], lty = 2)
-abline(h = -1.96 * best_par["group_sd"], lty = 2)
+### Check asymptotes and country-level random effects ##########################
+country_capacity <- best_par[grepl("ccc", names(best_par))] %>%
+  t() %>%
+  as_tibble() %>%
+  pivot_longer(-c(), names_to = "country", values_to = "country_capacity", names_prefix = "ccc_") %>%
+  mutate(asymptote = rlogit(best_par["global_capacity"] + country_capacity))
+country_capacity_plot <- ggplot(country_capacity, aes(y = country_capacity, x = country)) +
+  geom_hline(yintercept = c(0, 1.96 * best_par["group_sd"], -1.96 * best_par["groud_sd"]), lty = c(1, 2, 2)) +
+  geom_point() +
+  ylab("Country random effect") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.x = element_blank())
+asymptote_plot <- ggplot(country_capacity, aes(y = asymptote, x = country)) +
+  geom_point() +
+  ylab("Country asymptote (distance = 0)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        axis.title.x = element_blank())
+################################################################################
 
-dhs_pd <- list()
-dhs_predict_pd <- list()
-for(i in 1:length(dhs_sma)){
-  dhs_pd[[i]] <- dhs_sma[[i]] %>%
-    mutate(pfpr_g = cut_number(pfpr, 5)) %>%
-    group_by(country, pfpr_g) %>%
-    summarise(pfpr = mean(pfpr),
-              smal = binom::binom.exact(sum(sma), n())$lower,
-              smau = binom::binom.exact(sum(sma), n())$upper,
-              sma_prevalence = mean(sma),
-              distance = mean(distance))
-  
-  dhs_predict_pd[[i]] <- data.frame(
-    pfpr = seq(0, 0.6, 0.01),
-    country = country_names[i],
-    distance = mean(dhs_pd[[i]]$distance)) %>%
-    mutate(predicted_sma_prevalence = misc$model_function(pfpr, distance, best_par["a"], best_par["b"], best_par["c"], ccc[i], best_par["e"]))
-}
-dhs_pd <- bind_rows(dhs_pd)
-dhs_predict_pd <- bind_rows(dhs_predict_pd)
+### Compare pfpr fit to DHS data ###############################################
+dhs_summary_pfpr <- dhs_sma %>%
+  bind_rows() %>%
+  group_by(country) %>%
+  mutate(pfpr_g = cut_interval(pfpr, 7)) %>%
+  group_by(country, pfpr_g) %>%
+  summarise(pfpr = mean(pfpr),
+            smal = binom::binom.exact(sum(sma), n())$lower,
+            smau = binom::binom.exact(sum(sma), n())$upper,
+            sma_prevalence = mean(sma),
+            distance = mean(distance))
 
-ggplot() + 
-  geom_point(data = dhs_pd, aes(x = pfpr, y = sma_prevalence)) +
-  geom_linerange(data = dhs_pd, aes(x = pfpr, y = sma_prevalence, ymin = smal, ymax = smau)) + 
-  geom_line(data = dhs_predict_pd, aes(x = pfpr, y = predicted_sma_prevalence)) +
+dhs_predict_pfpr <- dhs_summary_pfpr %>%
+  group_by(country) %>%
+  summarise(distance = mean(distance)) %>%
+  left_join(data.frame(pfpr = seq(0, 0.7, 0.01)), by = character()) %>%
+  left_join(country_capacity, by = "country") %>%
+  mutate(predicted_sma_prevalence = misc$model_function(pfpr = pfpr,
+                                                        distance = distance, 
+                                                        global_capacity = best_par["global_capacity"],
+                                                        country_capacity = country_capacity,
+                                                        distance_beta = best_par["distance_beta"],
+                                                        pfpr_beta = best_par["pfpr_beta"],
+                                                        shift = best_par["shift"]))
+pfpr_dhs_plot <- ggplot() + 
+  geom_point(data = dhs_summary_pfpr, aes(x = pfpr, y = sma_prevalence)) +
+  geom_linerange(data = dhs_summary_pfpr, aes(x = pfpr, y = sma_prevalence, ymin = smal, ymax = smau)) + 
+  geom_line(data = dhs_predict_pfpr, aes(x = pfpr, y = predicted_sma_prevalence)) +
   xlab("PfPr") +
   ylab("SMA prevalence") +
   theme_bw() +
   ggtitle("Model fit to DHS data") +
   theme(strip.background = element_rect(fill = NA)) +
-  facet_wrap(~country)
+  facet_wrap(~ country, scales = "free_y")
+
+pfpr_sample_pd <- samples %>%
+  select(sample, global_capacity, shift, pfpr_beta) %>%
+  left_join(data.frame(pfpr = seq(0, 0.7, 0.01)), by = character()) %>%
+  mutate(predicted_sma_prevalence = misc$model_function(pfpr = pfpr,
+                                                        distance = 1, 
+                                                        global_capacity = global_capacity,
+                                                        country_capacity = 0,
+                                                        distance_beta = 0,
+                                                        pfpr_beta = pfpr_beta,
+                                                        shift = shift))
+pfpf_best_pd <- best_par %>%
+  t() %>%
+  as_tibble() %>%
+  select(global_capacity, shift, pfpr_beta) %>%
+  left_join(data.frame(pfpr = seq(0, 0.7, 0.01)), by = character()) %>%
+  mutate(predicted_sma_prevalence = misc$model_function(pfpr = pfpr,
+                                                        distance = 1, 
+                                                        global_capacity = global_capacity,
+                                                        country_capacity = 0,
+                                                        distance_beta = 0,
+                                                        pfpr_beta = pfpr_beta,
+                                                        shift = shift))
+
+pfpr_sample_plot <- ggplot() +
+  geom_line(data = pfpr_sample_pd, aes(x = pfpr, y = predicted_sma_prevalence, group = sample), alpha = 0.1) +
+  geom_line(data = pfpf_best_pd, aes(x = pfpr, y = predicted_sma_prevalence), col = "dodgerblue", size = 1) +
+  xlab("PfPr") +
+  ylab("SMA prevalence") +
+  theme_bw()
 ################################################################################
 
-## Compare GLM fit to disatne data #################################################
+## Compare distance fit to DHS data #################################################
+dhs_summary_distance <- dhs_sma %>%
+  bind_rows() %>%
+  group_by(country) %>%
+  mutate(distance_g = cut_interval(distance, 7)) %>%
+  group_by(country, distance_g) %>%
+  summarise(pfpr = mean(pfpr),
+            smal = binom::binom.exact(sum(sma), n())$lower,
+            smau = binom::binom.exact(sum(sma), n())$upper,
+            sma_prevalence = mean(sma),
+            distance = mean(distance))
 
-dhs_pd <- list()
-dhs_predict_pd <- list()
-for(i in 1:length(dhs_sma)){
-  dhs_pd[[i]] <- dhs_sma[[i]] %>%
-    mutate(distance_g = cut_number(distance, 10)) %>%
-    group_by(country, distance_g) %>%
-    summarise(pfpr = mean(pfpr),
-              smal = binom::binom.exact(sum(sma), n())$lower,
-              smau = binom::binom.exact(sum(sma), n())$upper,
-              sma_prevalence = mean(sma),
-              distance = mean(distance))
-  
-  dhs_predict_pd[[i]] <- data.frame(
-    distance = seq(0, max(dhs_pd[[i]]$distance), length.out = 100),
-    country = country_names[i],
-    pfpr = mean(dhs_pd[[i]]$pfpr)) %>%
-    mutate(predicted_sma_prevalence = misc$model_function(pfpr, distance, best_par["a"], best_par["b"], best_par["c"], ccc[i], best_par["e"]))
-}
-dhs_pd <- bind_rows(dhs_pd)
-dhs_predict_pd <- bind_rows(dhs_predict_pd)
+max_distance <- dhs_summary_distance %>%
+  group_by(country) %>%
+  slice_max(distance) %>%
+  select(country, distance) %>%
+  rename(max_distance = distance)
 
-ggplot() + 
-  geom_point(data = dhs_pd, aes(x = distance, y = sma_prevalence)) +
-  geom_linerange(data = dhs_pd, aes(x = distance, y = sma_prevalence, ymin = smal, ymax = smau)) + 
-  geom_line(data = dhs_predict_pd, aes(x = distance, y = predicted_sma_prevalence)) +
+dhs_predict_distance <- dhs_summary_pfpr %>%
+  group_by(country) %>%
+  summarise(pfpr = mean(pfpr)) %>%
+  left_join(data.frame(distance = 0:500), by = character()) %>%
+  left_join(max_distance, by = "country") %>%
+  filter(distance < max_distance) %>%
+  left_join(country_capacity, by = "country") %>%
+  mutate(predicted_sma_prevalence = misc$model_function(pfpr = pfpr,
+                                                        distance = distance, 
+                                                        global_capacity = best_par["global_capacity"],
+                                                        country_capacity = country_capacity,
+                                                        distance_beta = best_par["distance_beta"],
+                                                        pfpr_beta = best_par["pfpr_beta"],
+                                                        shift = best_par["shift"]))
+distance_dhs_plot <- ggplot() + 
+  geom_point(data = dhs_summary_distance, aes(x = distance, y = sma_prevalence)) +
+  geom_linerange(data = dhs_summary_distance, aes(x = distance, y = sma_prevalence, ymin = smal, ymax = smau)) + 
+  geom_line(data = dhs_predict_distance, aes(x = distance, y = predicted_sma_prevalence)) +
   xlab("Distance") +
   ylab("SMA prevalence") +
   theme_bw() +
   ggtitle("Model fit to DHS data") +
   theme(strip.background = element_rect(fill = NA)) +
-  facet_wrap(~country, scales = "free_x")
+  facet_wrap(~ country, scales = "free")
+
+
+distance_sample_pd <- samples %>%
+  select(sample, global_capacity, shift, distance_beta, pfpr_beta) %>%
+  left_join(data.frame(distance = 0:200), by = character()) %>%
+  mutate(predicted_sma_prevalence = misc$model_function(pfpr = 0.2,
+                                                        distance = distance, 
+                                                        global_capacity = global_capacity,
+                                                        country_capacity = 0,
+                                                        distance_beta = distance_beta,
+                                                        pfpr_beta = pfpr_beta,
+                                                        shift = shift))
+distance_best_pd <- best_par %>%
+  t() %>%
+  as_tibble() %>%
+  select(global_capacity, shift, distance_beta, pfpr_beta) %>%
+  left_join(data.frame(distance = 0:200), by = character()) %>%
+  mutate(predicted_sma_prevalence = misc$model_function(pfpr = 0.2,
+                                                        distance = distance, 
+                                                        global_capacity = global_capacity,
+                                                        country_capacity = 0,
+                                                        distance_beta = distance_beta,
+                                                        pfpr_beta = pfpr_beta,
+                                                        shift = shift))
+
+distance_sample_plot <- ggplot() +
+  geom_line(data = distance_sample_pd, aes(x = distance, y = predicted_sma_prevalence, group = sample), alpha = 0.1) +
+  geom_line(data = distance_best_pd, aes(x = distance, y = predicted_sma_prevalence), col = "dodgerblue", size = 1) +
+  xlab("Distance") +
+  ylab("SMA prevalence") +
+  theme_bw()
 ################################################################################
 
-
 ### Compare output to Paton et al hospital data ################################
-act_cov <- mean(paton$act)
-cfr <- as.numeric(best_par["cfr"])
-probs <- c(
-  p_recover = (1 - act_cov) * (1 -cfr),
-  p_tx =   act_cov,
-  p_die = (1 - act_cov) *cfr
-)
-ccc_paton <- ccc[paste0("ccc_", c("Kenya", "Tanzania", "Uganda"))]
-mean_dist_paton <- paton %>%
+paton_hosp <- best_par %>%
+  t() %>%
+  as_tibble() %>%
+  select(contains("hosp")) %>%
+  pivot_longer(-c(), names_to = "country", values_to = "hosp", names_prefix = "hosp_") %>%
+  rename(hospor = hosp)
+
+paton_average <- paton %>%
+  bind_rows() %>%
   group_by(country) %>%
-  summarise(distance = mean(distance),
-            act = mean(act)) %>%
-  mutate(countryn = case_when(
-    country == "Kenya" ~ 1,
-    country == "Tanzania" ~ 2,
-    country == "Uganda" ~ 3
-  ))
+  summarise(
+    distance = mean(distance),
+    act = mean(act)
+  ) %>%
+  left_join(paton_hosp, by = "country") %>%
+  mutate(cfr = best_par["cfr"],
+         dur_recover = best_par["dur_recover"],
+         dur_tx  =  best_par["dur_tx"],
+         dur_die = best_par["dur_die"],
+         p_recover = (1 - act) * (1 -cfr),
+         p_tx =   act,
+         p_die = (1 - act) * cfr) %>%
+  rowwise() %>%
+  mutate(rate = 1 / weighted.mean(c(dur_recover, dur_tx, dur_die), c(p_recover, p_tx, p_die)))
 
-paton_fit <- expand.grid(
-  pfpr = seq(0, 0.6, 0.01),
-  countryn = 1:3) %>%
-  left_join(mean_dist_paton, by = "countryn") %>%
-  mutate(
-    prob = misc$model_function(pfpr, distance, best_par["a"], best_par["b"], best_par["c"], ccc_paton[countryn], best_par["e"]),
-    prob = misc$sma_prev_age_standardise(prob),
-    p_recover = (1 - act) * (1 -cfr),
-    p_tx = act,
-    p_die = (1 - act) * cfr)
-paton_fit$community <- apply(paton_fit[,6:9], 1, function(x, dur_recover, dur_tx, dur_die){
-  1000 * 365 * inc1(x["prob"], 1 / weighted.mean(c(dur_recover, dur_tx, dur_die),
-                                                 c(x["p_recover"], x["p_tx"], x["p_die"])))
-}, dur_recover = best_par["dur_recover"], dur_tx = best_par["dur_tx"], dur_die = best_par["dur_die"])
-paton_fit <- paton_fit %>%
-  mutate(
-    hosp = community / best_par[c("hosp_Kenya",  "hosp_Tanzania", "hosp_Uganda" )][countryn],
-    paton_fit = paton_sma(pfpr)
-  )
+paton_fit <- data.frame(
+  country = c("Kenya", "Tanzania", "Uganda")) %>%
+  left_join(data.frame(pfpr = seq(0, 0.7, 0.01)), by = character()) %>%
+  left_join(country_capacity, by = "country") %>%
+  left_join(paton_average, by = "country") %>%
+  mutate(predicted_sma_prevalence = misc$model_function(pfpr = pfpr,
+                                                        distance = distance, 
+                                                        global_capacity = best_par["global_capacity"],
+                                                        country_capacity = country_capacity,
+                                                        distance_beta = best_par["distance_beta"],
+                                                        pfpr_beta = best_par["pfpr_beta"],
+                                                        shift = best_par["shift"])) %>%
+  mutate(predicted_sma_prevalence = sma_prev_age_standardise(predicted_sma_prevalence),
+         community = 1000 *  365 * inc1(predicted_sma_prevalence, rate),
+         hospital = community / hospor,
+         paton_average = paton_sma(pfpr))
 
-dp2 <- ggplot() +
-  geom_point(data = paton, aes(x = pfpr, y = 1000 * (sma / py))) +
-  geom_line(data = paton_fit, aes(x = pfpr, y = hosp), col = "black") +
-  geom_line(data = paton_fit, aes(x = pfpr, y = paton_fit), col = "black" , lty = 2) +
+hosp_community_pd <- paton_fit %>%
+  select(country, pfpr, community, hospital) %>%
+  pivot_longer(-c(country, pfpr), names_to = "location", values_to = "inc")
+
+paton_fit_plot <- ggplot() +
+  geom_point(data = bind_rows(paton), aes(x = pfpr, y = 1000 * (sma / py))) +
+  geom_line(data = paton_fit, aes(x = pfpr, y = paton_average), lty = 2) +
+  geom_line(data = paton_fit, aes(x = pfpr, y = hospital)) +
   xlab("PfPr") +
   ylab("Annual hospitalised incidence per 1000 children") +
   theme_bw() +
@@ -137,12 +233,26 @@ dp2 <- ggplot() +
   facet_wrap(~ country) +
   theme(strip.background = element_rect(fill = NA))
 
-dp3 <- ggplot() +
-  geom_line(data = paton_fit, aes(x = pfpr, y = hosp), col = "red") +
-  geom_line(data = paton_fit, aes(x = pfpr, y = community), col = "blue") +
-  theme_bw() +
+hosp_community_inc_plot <- ggplot(hosp_community_pd, aes(x = pfpr, y = inc, col = location)) +
+  geom_line() +
+  xlab("PfPr") +
   ylab("Annual incidence per 1000 children") +
-  ggtitle("Hospitalised vs community\nincidence") +
-  facet_wrap(~country) +
+  theme_bw() +
+  ggtitle("Model fit to Paton data") +
+  facet_wrap(~ country) +
+  theme(strip.background = element_rect(fill = NA))
+################################################################################
+
+### Probability of hospitalisation #############################################
+prob_hosp <- mcmc$output %>%
+  filter(phase == "sampling") %>%
+  select(contains("hosp")) %>%
+  tidyr::pivot_longer(-c(), names_to = "Country", values_to = "hosp_or", names_prefix = "hosp_") %>%
+  mutate(prop_hosp = 1 / hosp_or)
+
+prob_hosp_plot <- ggplot(hosp, aes(x = prop_hosp)) +
+  geom_histogram(binwidth = 0.01) + 
+  facet_wrap( ~ Country) +
+  theme_bw() +
   theme(strip.background = element_rect(fill = NA))
 ################################################################################
