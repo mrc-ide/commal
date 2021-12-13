@@ -247,12 +247,38 @@ hosp_community_inc_plot <- ggplot(hosp_community_pd, aes(x = pfpr, y = inc, col 
 prob_hosp <- mcmc$output %>%
   filter(phase == "sampling") %>%
   select(contains("hosp")) %>%
-  tidyr::pivot_longer(-c(), names_to = "Country", values_to = "hosp_or", names_prefix = "hosp_") %>%
-  mutate(prop_hosp = 1 / hosp_or)
+  tidyr::pivot_longer(-c(), names_to = "country", values_to = "hosp_or", names_prefix = "hosp_") %>%
+  mutate(prop_hosp = 1 - p(hosp_or))
 
-prob_hosp_plot <- ggplot(hosp, aes(x = prop_hosp)) +
+prob_hosp_plot <- ggplot(prob_hosp, aes(x = prop_hosp)) +
   geom_histogram(binwidth = 0.01) + 
-  facet_wrap( ~ Country) +
+  facet_wrap( ~ country) +
   theme_bw() +
   theme(strip.background = element_rect(fill = NA))
+
+prob_hosp %>%
+  group_by(country) %>%
+  summarise(prop_hosp_l = quantile(prop_hosp, 0.025),
+            prop_hosp = quantile(prop_hosp, 0.5),
+            prop_hosp_u = quantile(prop_hosp, 0.975))
+  
+################################################################################
+
+
+### Parameter plots ############################################################
+p <- c("global_capacity", "pfpr_beta", "distance_beta", "shift", "group_sd",
+       "cfr", "dur_recover", "dur_die", "dur_tx")
+
+# Global parameters
+pp <- plot_par(mcmc, p, display = FALSE)
+trace_plots <- patchwork::wrap_plots(lapply(pp, function(x) x$trace + theme(legend.position = "none")), ncol = length(p))
+hist_plots <- patchwork::wrap_plots(lapply(pp, function(x) x$hist), ncol = length(p))
+acf_plots <- patchwork::wrap_plots(lapply(pp, function(x) x$acf), ncol = length(p))
+parameter_plots <- trace_plots / hist_plots / acf_plots
+
+# Correlations between global pars
+cor <- apply(combn(p, 2), 2, function(x){
+  plot_cor(mcmc, x[1], x[2])
+})
+correlation_plots <- patchwork::wrap_plots(cor) + plot_layout(guides = "collect")
 ################################################################################
