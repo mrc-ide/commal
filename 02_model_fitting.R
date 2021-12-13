@@ -20,21 +20,38 @@ dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
 
 country_names <- as.character(sapply(dhs_sma, function(x)x$country[1]))
 n_countries <- length(dhs_sma)
+paton_countries <- c("Kenya", "Tanzania", "Uganda")
 
 # Data input list for MCMC
-data_list <- lapply(dhs_sma, function(x) x[,c("pfpr", "distance", "sma")])
+dhs_list <- lapply(dhs_sma, function(x) x[,c("pfpr", "distance", "sma")])
+paton_list <- as.list(rep(NA, n_countries))
+for(i in paton_countries){
+  index <- which(country_names == i)
+  paton_list[[index]] <- filter(paton, country == i) %>%
+    select(pfpr, distance, act, py, sma)
+}
+
+data_list <- list(
+  dhs = dhs_list,
+  paton = paton_list
+)
 
 # Helper functions for MCMC
 misc <- list(
-  model_function = gompertz
+  model_function = gompertz,
+  sma_prev_age_standardise = sma_prev_age_standardise
 )
 
 # Define parameters
 global_params <- define_params(name = "a", min = -Inf, max = Inf, init = -6, block = 1:n_countries, 
-                           name = "b", min = 0, max = 50, init = 5, block = 1:n_countries, 
-                           name = "c", min = 0, max = 50, init = 10, block = 1:n_countries, 
-                           name = "e", min = -Inf, max = Inf, init = 0, block = 1:n_countries, 
-                           name = "group_sd", min = 0, max = Inf, init = 1, block = n_countries+1)
+                               name = "b", min = 0, max = 50, init = 5, block = 1:n_countries, 
+                               name = "c", min = 0, max = 50, init = 10, block = 1:n_countries, 
+                               name = "e", min = -Inf, max = Inf, init = 0, block = 1:n_countries,
+                               name = "dur_recover", min = 0, max = Inf, init = 365, block = 24,
+                               name = "dur_tx", min = 0, max = Inf, init = 30, block = 24,
+                               name = "dur_die", min = 0, max = Inf, init = 10, block = 24,
+                               name = "cfr", min = 0, max = 1, init = 0.5, block = 24,
+                               name = "group_sd", min = 0, max = Inf, init = 1, block = n_countries + 1)
 country_params <- data.frame(
   name = paste0("ccc_", country_names),
   min = -10,
@@ -44,7 +61,14 @@ country_params$init <- as.list(rep(0, n_countries))
 country_params$block <- lapply(1:n_countries, function(x){
   c(x, 23)
 })
-df_params <- bind_rows(global_params, country_params)
+hosp_params <- data.frame(
+  name = paste0("hosp_", paton_countries),
+  min = 0,
+  max = 1000
+)
+hosp_params$init <- as.list(rep(1, 3))
+hosp_params$block <- as.list(25:27)
+df_params <- bind_rows(global_params, hosp_params, country_params)
 
 # Run MCMC
 #cl <- parallel::makeCluster(2)
@@ -59,7 +83,7 @@ mcmc <- run_mcmc(data = data_list,
                  rungs = 1,
                  chains = 1)
 #parallel::stopCluster(cl)
-saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
+#saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 
 # Global parameters
 pp <- plot_par(mcmc, c("a", "b", "c", "e", "group_sd"), display = FALSE)
