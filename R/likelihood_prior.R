@@ -24,14 +24,14 @@ r_loglike <- function(params, data, misc) {
                                       pfpr_beta = params["pfpr_beta"],
                                       shift = params["shift"])
     prob_paton <- misc$sma_prev_age_standardise(prob_paton)
-    durations <- params[c("dur_recover", "dur_tx", "dur_die")]
-    weights <- cbind(
-      p_recover = (1 - data$paton[[paton_block]]$act) * (1 - params["cfr"]),
-      p_tx = data$paton[[paton_block]]$act,
-      p_die = (1 - data$paton[[paton_block]]$act) * params["cfr"]
-    )
-    mean_duration <- apply(weights, 1, weighted.mean, x = durations)
-    inc <- data$paton[[paton_block]]$py * 365 * inc1(prob_paton, 1 / mean_duration)
+    duration <- misc$mean_duration(act = data$paton[[paton_block]]$act,
+                                            dur_recover = params["dur_recover"],
+                                            dur_tx = params["dur_tx"],
+                                            dur_die = params["dur_die"],
+                                            cfr = params["cfr"])
+    inc <- inc1(prevalence = prob_paton,
+                recovery_rate = 1 / duration,
+                py = data$paton[[paton_block]]$py)
     hosp_inc <- inc / country_hosp[paton_block]
     loglike <- sum(dpois(data$paton[[paton_block]]$sma, hosp_inc, log = T))
   }

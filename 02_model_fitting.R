@@ -38,7 +38,8 @@ data_list <- list(
 # Helper functions for MCMC
 misc <- list(
   model_function = gompertz,
-  sma_prev_age_standardise = sma_prev_age_standardise
+  sma_prev_age_standardise = sma_prev_age_standardise,
+  mean_duration = mean_duration
 )
 
 # Define parameters
@@ -74,29 +75,18 @@ hosp_params$block <- as.list(23:25)
 df_params <- bind_rows(global_params, hosp_params, country_params)
 
 # Run MCMC
-#cl <- parallel::makeCluster(2)
-#parallel::clusterExport(cl, c("rlogit"))
+cl <- parallel::makeCluster(4)
+parallel::clusterExport(cl, c("rlogit", "inc1", "dgamma2"))
 mcmc <- run_mcmc(data = data_list,
                  df_params = df_params,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 1e3,
-                 samples = 1e4,
+                 burnin = 1e2,
+                 samples = 1e2,
                  rungs = 1,
                  chains = 1)
-#parallel::stopCluster(cl)
+parallel::stopCluster(cl)
 #saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 
-# Global parameters
-pp <- plot_par(mcmc, c("a", "b", "c", "e", "group_sd"), display = FALSE)
-trace_plots <- patchwork::wrap_plots(lapply(pp, function(x) x$trace + theme(legend.position = "none")), ncol = 5)
-hist_plots <- patchwork::wrap_plots(lapply(pp, function(x) x$hist), ncol = 5)
-acf_plots <- patchwork::wrap_plots(lapply(pp, function(x) x$acf), ncol = 5)
-parameter_plots <- trace_plots / hist_plots / acf_plots
 
-# Correlations between global pars
-cor <- apply(combn(c("a", "b", "c", "e"), 2), 2, function(x){
-  plot_cor(mcmc, x[1], x[2])
-})
-correlation_plots <- patchwork::wrap_plots(cor)

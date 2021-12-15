@@ -35,10 +35,11 @@ prev <- function(incidence, recovery_rate){
 #'
 #' @param prevalence Point prevalence
 #' @param recovery_rate Recovery rare
+#' @param py Person years
 #'
 #' @return Incidence rate.
-inc1 <- function(prevalence, recovery_rate){
-  prevalence * recovery_rate / (1 - prevalence)
+inc1 <- function(prevalence, recovery_rate, py = 1000){
+  py * 365 * (prevalence * recovery_rate / (1 - prevalence))
 }
 
 #' Estimate the incidence from period prevalence.

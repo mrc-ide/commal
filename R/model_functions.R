@@ -1,8 +1,32 @@
 
-gompertz <- function(pfpr, distance, global_capacity, country_capacity, distance_beta, pfpr_beta, shift){
+gompertz <- function(pfpr, distance, global_capacity, country_capacity,
+                     distance_beta, pfpr_beta, shift){
   carrying_capacity <- rlogit(global_capacity + country_capacity + distance_beta * log(distance))
   est <- carrying_capacity * exp(-exp(shift - pfpr_beta * pfpr))
   return(est)
+}
+
+#' Mean duration of SMA
+#' 
+#' This is a fast version of taking the weighted.mean across durations and 
+#' outcome probabilities.
+#'
+#' @param act ACT coverage
+#' @param dur_recover Duration if outcome is natural recovery
+#' @param dur_tx Duration if outcome is treatment
+#' @param dur_die Duration if outcome is death
+#' @param cfr Case fatality rate
+#'
+#' @return Average duration
+#' @export
+mean_duration <- function(act, dur_recover, dur_tx, dur_die, cfr){
+  p_recover = (1 - act) * (1 - cfr)
+  p_tx = act
+  p_die = act * cfr
+  weights <- p_recover + p_tx + p_die
+  values <- p_recover * dur_recover + p_tx * dur_tx + p_die * dur_die
+  mean_duration <- values / weights
+  return(mean_duration)
 }
 
 # Estimate the probability from log odds
