@@ -9,13 +9,16 @@ dhs_data_raw <- readRDS("ignore/dhs/processed_data/processed_dhs.RDS")#%>%
 country_levels <- unique(dhs_data_raw$country)
 
 dhs_sma <- dhs_data_raw  %>%
+  group_by(count)
   filter(
     rdt %in% c("negative", "positive"),
+    microscopy %in% c("negative", "positive"),
     anemia_level %in% c("non_severe", "severe"),
     !is.na(prevalence)) %>%
   mutate(
     # Severe malaria anaemia
-    sma = ifelse(anemia_level == "severe" & rdt == "positive", 1, 0)
+    sma_rdt = ifelse(anemia_level == "severe" & rdt == "positive", 1, 0),
+    sma_microscopy = ifelse(anemia_level == "severe" & microscopy == "positive", 1, 0),
   ) %>%
   rename(pfpr = prevalence) %>%
   dplyr::select(iso, country, cluster, survey_year, pfpr, rdt, act, sma, distance) %>%

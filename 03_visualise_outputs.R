@@ -282,14 +282,14 @@ dhs_distance_fits <- ggplot() +
 ################################################################################
 
 ### Global plots of SMA predictions ############################################
-ggplot() +
+global_pfpr_plot <- ggplot() +
   geom_line(data = pfpr_prediction, aes(x = pfpr, y = sma_prevalence, group = sample), alpha = 0.1, col = "#00798c") +
   geom_line(data = pfpr_median_prediction, aes(x = pfpr, y = sma_prevalence), col = "#edae49", size = 1) +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab(expression(SMAPr[0.5-5])) + 
   theme_bw()
 
-ggplot() +
+global_distance_plot <- ggplot() +
   geom_line(data = distance_prediction, aes(x = distance, y = sma_prevalence, group = sample), alpha = 0.1, col = "#00798c") +
   geom_line(data = distance_median_prediction, aes(x = distance, y = sma_prevalence), col = "#edae49", size = 1) +
   xlab("Distance") +
@@ -326,7 +326,7 @@ ggplot() +
   scale_y_log10()
 
 ggplot(paton_prediction, aes(x = p_hosp)) +
-  geom_histogram(bins = 10, fill = "darkblue") +
+  geom_histogram(bins = 30, fill = "darkblue") +
   facet_wrap(~country, scales = "free_y") +
   theme_bw()
 ################################################################################

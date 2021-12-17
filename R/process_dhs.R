@@ -79,13 +79,14 @@ process_pr <- function(pr_data, symptom_var){
     mutate(
       # Deal with missing values
       hc56 = ifelse(hc56 == 999, NA, hc56),
-      anemia_level = ifelse((hc56 / 10) < 5, "severe", "non_severe")) %>%
+      hb = hc56 / 10,
+      anemia_level = ifelse(hb < 5, "severe", "non_severe")) %>%
     dplyr::select(country_code, cluster, household, child_line_number,
                   year, hh_selected_hemoglobin, hh_sample_weight,
                   hh_wealth, car_or_truck, motorcycle_or_scooter,  mothers_education, 
                   slept_last_night, sex, age_in_months,
                   rdt, microscopy,
-                  hemoglobin, anemia_level
+                  hemoglobin,hb, anemia_level
     ) %>%
     bind_cols(sev_illness) %>%
     # replace codes with factor labels
