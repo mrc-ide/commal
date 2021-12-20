@@ -19,7 +19,7 @@ paton <- readRDS("ignore/prob_hosp/paton_inferred.rds")%>%
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
 
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
-  select(pfpr, sma, distance, country) %>%
+  select(pfpr, sma_microscopy, distance, country) %>%
   split(.$country)
 cn <- as.character(sapply(dhs_sma, function(x)x$country[1]))
 names(dhs_sma) <- cn
@@ -31,7 +31,7 @@ n_countries <- length(dhs_sma)
 
 # Data input list for MCMC
 data_list <- list(
-  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "distance", "sma")]),
+  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "distance", "sma_microscopy")]),
   paton = lapply(paton, function(x) x[,c("pfpr", "distance", "act", "py", "sma")])
 )
 
@@ -43,15 +43,17 @@ misc <- list(
 )
 
 # Define parameters
-global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, init = -6, block = 1:25, 
-                               name = "shift", min = 0, max = 50, init = 5, block = 1:25, 
-                               name = "pfpr_beta", min = 0, max = 50, init = 10, block = 1:25, 
-                               name = "distance_beta", min = -Inf, max = Inf, init = 0, block = 1:25,
-                               name = "dur_recover", min = 0, max = Inf, init = 365, block = 23:25,
-                               name = "dur_tx", min = 0, max = Inf, init = 30, block = 23:25,
-                               name = "dur_die", min = 0, max = Inf, init = 10, block = 23:25,
-                               name = "cfr", min = 0, max = 1, init = 0.5, block = 23:25,
-                               name = "group_sd", min = 0, max = Inf, init = 1, block = 26)
+global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, init = -6, block = 1:(n_countries+3), 
+                               name = "shift", min = 0, max = 50, init = 5, block = 1:(n_countries+3), 
+                               name = "pfpr_beta", min = 0, max = 50, init = 10, block = 1:(n_countries+3), 
+                               name = "distance_beta", min = -Inf, max = Inf, init = 0, block = 1:(n_countries+3),
+                               name = "dur_die4", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
+                               name = "dur_recover4", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
+                               name = "dur_die5", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
+                               name = "dur_recover5", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
+                               name = "cfr4", min = 0, max = 1, init = 0.5, block = (n_countries+1):(n_countries+3),
+                               name = "cfr5", min = 0, max = 1, init = 0.5, block = (n_countries+1):(n_countries+3),
+                               name = "group_sd", min = 0, max = Inf, init = 1, block = (n_countries+4))
 country_params <- data.frame(
   name = paste0("ccc_", country_names),
   min = -10,
@@ -59,11 +61,11 @@ country_params <- data.frame(
 )
 country_params$init <- as.list(rep(0, n_countries))
 country_params$block <- lapply(1:n_countries, function(x){
-  c(x, 26)
+  c(x, (n_countries+4))
 })
-country_params$block[[1]] <- c(1, 23, 26)
-country_params$block[[2]] <- c(2, 24, 26)
-country_params$block[[3]] <- c(3, 25, 26)
+country_params$block[[1]] <- c(1, (n_countries+1), (n_countries+4))
+country_params$block[[2]] <- c(2, (n_countries+2), (n_countries+4))
+country_params$block[[3]] <- c(3, (n_countries+3), (n_countries+4))
 
 hosp_params <- data.frame(
   name = paste0("hosp_", paton_countries),
@@ -71,22 +73,22 @@ hosp_params <- data.frame(
   max = 1000
 )
 hosp_params$init <- as.list(rep(1, 3))
-hosp_params$block <- as.list(23:25)
+hosp_params$block <- as.list((n_countries+1):(n_countries+3))
 df_params <- bind_rows(global_params, hosp_params, country_params)
 
 # Run MCMC
-cl <- parallel::makeCluster(4)
-parallel::clusterExport(cl, c("rlogit", "inc1", "dgamma2"))
+#cl <- parallel::makeCluster(4)
+#parallel::clusterExport(cl, c("rlogit", "inc1", "dgamma2"))
 mcmc <- run_mcmc(data = data_list,
                  df_params = df_params,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 1e2,
-                 samples = 1e2,
+                 burnin = 5e3,
+                 samples = 1e4,
                  rungs = 1,
                  chains = 1)
-parallel::stopCluster(cl)
+#parallel::stopCluster(cl)
 #saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 
 

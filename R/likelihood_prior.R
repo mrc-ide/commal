@@ -3,7 +3,7 @@ r_loglike <- function(params, data, misc) {
   country_hosp <-params[grepl("hosp_", names(params))]
   block <- unlist(misc["block"])
   
-  if(block %in% 1:22){
+  if(block %in% 1:18){
     prob_dhs <- misc$model_function(pfpr = data$dhs[[block]]$pfpr,
                                     distance = data$dhs[[block]]$distance,
                                     global_capacity = params["global_capacity"],
@@ -11,11 +11,11 @@ r_loglike <- function(params, data, misc) {
                                     distance_beta = params["distance_beta"],
                                     pfpr_beta = params["pfpr_beta"],
                                     shift = params["shift"])
-    loglike <- sum(dbinom(data$dhs[[block]]$sma, 1, prob_dhs, log = T))
+    loglike <- sum(dbinom(data$dhs[[block]]$sma_microscopy, 1, prob_dhs, log = T))
   }
   
-  if(block %in% 23:25){
-    paton_block <- block - 22
+  if(block %in% 19:21){
+    paton_block <- block - 18
     prob_paton <- misc$model_function(pfpr = data$paton[[paton_block]]$pfpr,
                                       distance = data$paton[[paton_block]]$distance,
                                       global_capacity = params["global_capacity"],
@@ -24,11 +24,12 @@ r_loglike <- function(params, data, misc) {
                                       pfpr_beta = params["pfpr_beta"],
                                       shift = params["shift"])
     prob_paton <- misc$sma_prev_age_standardise(prob_paton)
-    duration <- misc$mean_duration(act = data$paton[[paton_block]]$act,
-                                            dur_recover = params["dur_recover"],
-                                            dur_tx = params["dur_tx"],
-                                            dur_die = params["dur_die"],
-                                            cfr = params["cfr"])
+    duration <- misc$mean_duration(dur_die4 = params["dur_die4"],
+                                   dur_recover4 = params["dur_recover4"],
+                                   dur_die5 = params["dur_die5"],
+                                   dur_recover5 = params["dur_recover5"],
+                                   cfr4 = params["cfr4"],
+                                   cfr5 = params["cfr5"])
     inc <- inc1(prevalence = prob_paton,
                 recovery_rate = 1 / duration,
                 py = data$paton[[paton_block]]$py)
@@ -36,7 +37,7 @@ r_loglike <- function(params, data, misc) {
     loglike <- sum(dpois(data$paton[[paton_block]]$sma, hosp_inc, log = T))
   }
   
-  if(block == 26){
+  if(block == 22){
     loglike <- sum(dnorm(country_capacity, 0, params["group_sd"], log = T))
   }
   
@@ -48,10 +49,12 @@ r_logprior <- function(params, misc){
   ret <- 
     sum(dlnorm(params["group_sd"], 0, 5, log = TRUE)) +
     sum(dnorm(params[grepl("ccc", names(params))], 0, 10, log = TRUE)) +
-    sum(dgamma2(params["dur_recover"], 315, 1000, log = TRUE)) +
-    sum(dgamma2(params["dur_tx"], 20, 100, log = TRUE)) +
-    sum(dgamma2(params["dur_die"], 20, 100, log = TRUE)) +
-    sum(dbeta(params["cfr"], 5, 5, log = TRUE))# +
+    sum(dgamma2(params["dur_die4"], 2, 1, log = TRUE)) +
+    sum(dgamma2(params["dur_recover4"], 10, 100, log = TRUE)) +
+    sum(dgamma2(params["dur_die5"], 4, 1, log = TRUE)) +
+    sum(dgamma2(params["dur_recover5"], 30, 300, log = TRUE)) +
+    sum(dbeta(params["cfr4"], 30, 1, log = TRUE)) +
+    sum(dbeta(params["cfr5"], 10, 5, log = TRUE)) # +
   #sum(dlnorm(params[grepl("hosp", names(params))], 0, 1, log = TRUE))
   return(ret)
 }

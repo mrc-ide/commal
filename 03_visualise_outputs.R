@@ -11,7 +11,7 @@ source("R/model_functions.R")
 
 mcmc <- readRDS("ignore/prob_hosp/mcmc_fits/mcmc.rds")
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
-  select(pfpr, sma, distance, country)
+  select(pfpr, sma_microscopy, distance, country)
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
   select(pfpr, sma, distance, act, py, country)
 
@@ -95,9 +95,9 @@ dhs_pfpr_summary <- dhs_sma %>%
     pfprl = quantile(pfpr, 0.025),
     pfpru = quantile(pfpr, 0.975),
     pfpr = mean(pfpr),
-    smal = binom::binom.exact(sum(sma), n())$lower,
-    smau = binom::binom.exact(sum(sma), n())$upper,
-    sma_prevalence = mean(sma))
+    smal = binom::binom.exact(sum(sma_microscopy), n())$lower,
+    smau = binom::binom.exact(sum(sma_microscopy), n())$upper,
+    sma_prevalence = mean(sma_microscopy))
 
 dhs_distance_summary <- dhs_sma %>%
   bind_rows() %>%
@@ -108,9 +108,9 @@ dhs_distance_summary <- dhs_sma %>%
     distancel = quantile(distance, 0.025),
     distanceu = quantile(distance, 0.975),
     distance = mean(distance),
-    smal = binom::binom.exact(sum(sma), n())$lower,
-    smau = binom::binom.exact(sum(sma), n())$upper,
-    sma_prevalence = mean(sma))
+    smal = binom::binom.exact(sum(sma_microscopy), n())$lower,
+    smau = binom::binom.exact(sum(sma_microscopy), n())$upper,
+    sma_prevalence = mean(sma_microscopy))
 
 paton_var_summary <- paton %>%
   bind_rows() %>%
@@ -225,11 +225,12 @@ paton_prediction <- parameters %>%
                                    pfpr_beta = pfpr_beta,
                                    shift = shift),
          adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         duration = mean_duration(act = act,
-                                  dur_recover = dur_recover,
-                                  dur_tx = dur_tx,
-                                  dur_die = dur_die,
-                                  cfr = cfr),
+         duration = mean_duration(dur_die4 = dur_die4,
+                                  dur_recover4 = dur_recover4,
+                                  dur_die5 = dur_die5,
+                                  dur_recover5 = dur_recover5,
+                                  cfr4 = cfr4,
+                                  cfr5 = cfr5),
          community = inc1(prevalence = adjusted_sma_prevalence, recovery_rate = 1 / duration),
          hospital = community / hosp,
          p_hosp = 1 - p(hosp))

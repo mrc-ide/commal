@@ -9,7 +9,9 @@ dhs_data_raw <- readRDS("ignore/dhs/processed_data/processed_dhs.RDS")#%>%
 country_levels <- unique(dhs_data_raw$country)
 
 dhs_sma <- dhs_data_raw  %>%
-  group_by(count)
+  #group_by(country) %>%
+  #slice_max(order_by = year) %>%
+  #ungroup() %>%
   filter(
     rdt %in% c("negative", "positive"),
     microscopy %in% c("negative", "positive"),
@@ -21,7 +23,7 @@ dhs_sma <- dhs_data_raw  %>%
     sma_microscopy = ifelse(anemia_level == "severe" & microscopy == "positive", 1, 0),
   ) %>%
   rename(pfpr = prevalence) %>%
-  dplyr::select(iso, country, cluster, survey_year, pfpr, rdt, act, sma, distance) %>%
+  dplyr::select(iso, country, cluster, survey_year, year, pfpr, rdt, microscopy, distance, act, hb, sma_rdt, sma_microscopy) %>%
   mutate(countryn = as.numeric(factor(country, levels = country_levels)))
 
 

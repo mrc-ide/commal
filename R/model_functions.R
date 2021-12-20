@@ -11,7 +11,6 @@ gompertz <- function(pfpr, distance, global_capacity, country_capacity,
 #' This is a fast version of taking the weighted.mean across durations and 
 #' outcome probabilities.
 #'
-#' @param act ACT coverage
 #' @param dur_recover Duration if outcome is natural recovery
 #' @param dur_tx Duration if outcome is treatment
 #' @param dur_die Duration if outcome is death
@@ -19,12 +18,14 @@ gompertz <- function(pfpr, distance, global_capacity, country_capacity,
 #'
 #' @return Average duration
 #' @export
-mean_duration <- function(act, dur_recover, dur_tx, dur_die, cfr){
-  p_recover = (1 - act) * (1 - cfr)
-  p_tx = act
-  p_die = act * cfr
-  weights <- p_recover + p_tx + p_die
-  values <- p_recover * dur_recover + p_tx * dur_tx + p_die * dur_die
+mean_duration <- function(dur_die4, dur_recover4, dur_die5, dur_recover5, cfr4, cfr5){
+  p_pma <- 0.05
+  p_die4 <- p_pma * cfr4
+  p_recover4 <- p_pma * (1 - cfr4)
+  p_die5 <- (1 - p_pma) * cfr5
+  p_recover5 <- (1 - p_pma)  * (1 - cfr5)
+  weights <- p_die4 + p_recover4 + p_die5 + p_recover5
+  values <- p_die4 * dur_die4 + p_recover4 * dur_recover4 + p_die5 * dur_die5 + p_recover5 * dur_recover5
   mean_duration <- values / weights
   return(mean_duration)
 }
