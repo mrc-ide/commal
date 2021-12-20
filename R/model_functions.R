@@ -18,14 +18,9 @@ gompertz <- function(pfpr, distance, global_capacity, country_capacity,
 #'
 #' @return Average duration
 #' @export
-mean_duration <- function(dur_die4, dur_recover4, dur_die5, dur_recover5, cfr4, cfr5){
-  p_pma <- 0.05
-  p_die4 <- p_pma * cfr4
-  p_recover4 <- p_pma * (1 - cfr4)
-  p_die5 <- (1 - p_pma) * cfr5
-  p_recover5 <- (1 - p_pma)  * (1 - cfr5)
-  weights <- p_die4 + p_recover4 + p_die5 + p_recover5
-  values <- p_die4 * dur_die4 + p_recover4 * dur_recover4 + p_die5 * dur_die5 + p_recover5 * dur_recover5
+mean_duration <- function(dur_die, dur_recover, cfr){
+  weights <- cfr + (1 - cfr)
+  values <- cfr * dur_die + (1 - cfr) * dur_recover
   mean_duration <- values / weights
   return(mean_duration)
 }

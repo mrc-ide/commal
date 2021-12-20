@@ -9,7 +9,7 @@ source("R/odds_probability.R")
 source("R/paton_fits.R")
 source("R/model_functions.R")
 
-mcmc <- readRDS("ignore/prob_hosp/mcmc_fits/mcmc.rds")
+# mcmc <- readRDS("ignore/prob_hosp/mcmc_fits/mcmc.rds")
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
   select(pfpr, sma_microscopy, distance, country)
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
@@ -33,48 +33,6 @@ parameters <- global_parameters %>%
   left_join(country_parameters, by = "sample") %>%
   left_join(hospital_parameters, by = c("country", "sample")) %>%
   select(country, sample, everything())
-################################################################################
-
-
-global_parameters <- samples %>%
-  select(-contains("ccc_"), -contains("hosp"))
-global_summary_par <- bind_rows(
-  apply(global_parameters, 2, median),
-  apply(global_parameters, 2, quantile, probs = 0.025),
-  apply(global_parameters, 2, quantile, probs = 0.975)
-) %>%
-  mutate(sample = c("Median", "Lower CrI", "Upper CrI"))
-global_parameters <- bind_rows(global_summary_par, mutate(global_parameters, sample = as.character(sample)))%>%
-  mutate(alpha = ifelse(sample %in% c("Median", "Lower CrI", "Upper CrI"), 1, 0.1),
-         col = case_when(sample == "Median" ~ "1",
-                         sample %in% c("Lower CrI", "Upper CrI") ~ "2",
-                         TRUE ~ "3"),
-         lty = col) %>%
-  select(sample, alpha, everything())
-
-country_parameters <- samples %>%
-  select(contains("ccc_"), sample) %>%
-  pivot_longer(-sample, names_to = "country", values_to = "country_capacity", names_prefix = "ccc_") %>%
-  group_by(country) %>%
-  summarise(country_capacity = median(country_capacity))
-
-
-hospital_parameters <- samples %>%
-  select(contains("hosp_"), sample) %>%
-  pivot_longer(-sample, names_to = "country", values_to = "hosp", names_prefix = "hosp_") %>%
-  group_by(country) %>%
-  summarise(hosp = median(hosp))
-
-hospital_parameters <- samples %>%
-  select(contains("hosp_"), sample) 
-hospital_summary_par <- bind_rows(
-  apply(hospital_parameters, 2, median),
-  apply(hospital_parameters, 2, quantile, probs = 0.975),
-  apply(hospital_parameters, 2, quantile, probs = 0.025)
-) %>%
-  mutate(sample = c("Median", "Lower CrI", "Upper CrI"))
-hospital_parameters <- bind_rows(hospital_summary_par, mutate(hospital_parameters, sample = as.character(sample))) %>%
-  pivot_longer(-sample, names_to = "country", values_to = "hosp", names_prefix = "hosp_")
 ################################################################################
 
 ### Prepare and summarise DHS data #############################################
@@ -130,7 +88,7 @@ paton_summary <- paton %>%
 
 ### Prediction data.frames #####################################################
 pfpr_df <- data.frame(pfpr = seq(0, 0.8, 0.01))
-distance_df <- data.frame(distance = seq(0, 50, 0.1))
+distance_df <- data.frame(distance = seq(0.1, 50, 0.1))
 
 dhs_pfpr_prediction <- parameters %>%
   left_join(pfpr_df, by = character()) %>%
@@ -225,12 +183,9 @@ paton_prediction <- parameters %>%
                                    pfpr_beta = pfpr_beta,
                                    shift = shift),
          adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         duration = mean_duration(dur_die4 = dur_die4,
-                                  dur_recover4 = dur_recover4,
-                                  dur_die5 = dur_die5,
-                                  dur_recover5 = dur_recover5,
-                                  cfr4 = cfr4,
-                                  cfr5 = cfr5),
+         duration = mean_duration(dur_die = dur_die,
+                                  dur_recover = dur_recover,
+                                  cfr = cfr),
          community = inc1(prevalence = adjusted_sma_prevalence, recovery_rate = 1 / duration),
          hospital = community / hosp,
          p_hosp = 1 - p(hosp))
