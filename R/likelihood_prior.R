@@ -24,11 +24,8 @@ r_loglike <- function(params, data, misc) {
                                       pfpr_beta = params["pfpr_beta"],
                                       shift = params["shift"])
     prob_paton <- misc$sma_prev_age_standardise(prob_paton)
-    duration <- misc$mean_duration(dur_die = params["dur_die"],
-                                   dur_recover = params["dur_recover"],
-                                   cfr = params["cfr"])
     inc <- inc1(prevalence = prob_paton,
-                recovery_rate = 1 / duration,
+                recovery_rate = 1 / params["dur"],
                 py = data$paton[[paton_block]]$py)
     hosp_inc <- inc / country_hosp[paton_block]
     loglike <- sum(dpois(data$paton[[paton_block]]$sma, hosp_inc, log = T))
@@ -46,8 +43,7 @@ r_logprior <- function(params, misc){
   ret <- 
     sum(dlnorm(params["group_sd"], 0, 5, log = TRUE)) +
     sum(dnorm(params[grepl("ccc", names(params))], 0, 10, log = TRUE)) +
-    sum(dgamma2(params["dur_die"], 2, 1, log = TRUE)) +
-    sum(dgamma2(params["dur_recover"], 30, 500, log = TRUE)) +
+    #sum(dgamma2(params["dur"], 2, 1, log = TRUE)) +
     sum(dgamma2(params[grepl("hosp", names(params))], 1, 0.7, log = TRUE))
   return(ret)
 }

@@ -183,10 +183,7 @@ paton_prediction <- parameters %>%
                                    pfpr_beta = pfpr_beta,
                                    shift = shift),
          adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         duration = mean_duration(dur_die = dur_die,
-                                  dur_recover = dur_recover,
-                                  cfr = cfr),
-         community = inc1(prevalence = adjusted_sma_prevalence, recovery_rate = 1 / duration),
+         community = inc1(prevalence = adjusted_sma_prevalence, recovery_rate = 1 / dur),
          hospital = community / hosp,
          p_hosp = 1 - p(hosp))
 
@@ -301,7 +298,7 @@ ggplot(parameters, aes(x = country, fill = country, y = country_capacity)) +
 
 ### Parameter plots ############################################################
 p <- c("global_capacity", "pfpr_beta", "distance_beta", "shift", "group_sd",
-       "cfr", "dur_recover", "dur_die", "dur_tx")
+       "dur")
 
 # Global parameters
 pp <- plot_par(mcmc, p, display = FALSE)

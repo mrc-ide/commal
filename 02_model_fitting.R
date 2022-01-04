@@ -47,9 +47,7 @@ global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, 
                                name = "shift", min = 0, max = 50, init = 5, block = 1:(n_countries+3), 
                                name = "pfpr_beta", min = 0, max = 50, init = 10, block = 1:(n_countries+3), 
                                name = "distance_beta", min = -Inf, max = Inf, init = 0, block = 1:(n_countries+3),
-                               name = "dur_die", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
-                               name = "dur_recover", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
-                               name = "cfr", min = 0, max = 1, init = 0.5, block = (n_countries+1):(n_countries+3),
+                               name = "dur", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
                                name = "group_sd", min = 0, max = Inf, init = 1, block = (n_countries+4))
 country_params <- data.frame(
   name = paste0("ccc_", country_names),
