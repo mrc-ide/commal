@@ -1,7 +1,7 @@
-
-gompertz <- function(pfpr, distance, global_capacity, country_capacity,
-                     distance_beta, pfpr_beta, shift){
-  carrying_capacity <- rlogit(global_capacity + country_capacity + distance_beta * log(distance))
+# Estimate prob of SMA
+gompertz <- function(pfpr, distance, fever_tx, global_capacity, country_capacity,
+                     distance_beta, pfpr_beta, tx_beta, shift){
+  carrying_capacity <- rlogit(global_capacity + country_capacity + distance_beta * log(distance + 0.0001) + tx_beta * fever_tx)
   est <- carrying_capacity * exp(-exp(shift - pfpr_beta * pfpr))
   return(est)
 }

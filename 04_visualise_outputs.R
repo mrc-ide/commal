@@ -9,14 +9,15 @@ source("R/odds_probability.R")
 source("R/paton_fits.R")
 source("R/model_functions.R")
 
-# mcmc <- readRDS("ignore/prob_hosp/mcmc_fits/mcmc.rds")
-dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
-  select(pfpr, sma_microscopy, distance, country)
-paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
-  select(pfpr, sma, distance, act, py, country)
+#mcmc <- readRDS("ignore/prob_hosp/mcmc_fits/mcmc.rds")
 
+paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
+  select(pfpr, sma, distance, fever_tx, py, country)
+dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
+  #filter(country %in% unique(paton$country)) %>%
+  select(pfpr, sma_microscopy, distance, fever_tx, country)
 ### Wrangle parameters #########################################################
-samples <- sample_chains(mcmc, 100)
+samples <- sample_chains(mcmc, 300)
 
 global_parameters <- samples %>%
   select(-contains("ccc_"), -contains("hosp"))
@@ -41,6 +42,7 @@ dhs_var_summary <- dhs_sma %>%
   group_by(country) %>%
   summarise(mean_distance = mean(distance),
             max_distance = max(distance),
+            fever_tx = mean(fever_tx),
             mean_pfpr = mean(pfpr),
             max_pfpr = max(pfpr))
 
@@ -75,10 +77,9 @@ paton_var_summary <- paton %>%
   group_by(country) %>%
   summarise(mean_distance = weighted.mean(distance, py),
             max_distance = max(distance),
+            fever_tx = weighted.mean(fever_tx, py),
             mean_pfpr = weighted.mean(pfpr, py),
-            max_pfpr = max(pfpr),
-            mean_act = weighted.mean(act, py),
-            max_act = max(act))
+            max_pfpr = max(pfpr))
 
 paton_summary <- paton %>%
   bind_rows() %>%
@@ -93,17 +94,19 @@ distance_df <- data.frame(distance = seq(0.1, 50, 0.1))
 dhs_pfpr_prediction <- parameters %>%
   left_join(pfpr_df, by = character()) %>%
   # add mean distance for each country
-  left_join(select(dhs_var_summary, country, mean_distance), by = "country")%>%
+  left_join(select(dhs_var_summary, country, mean_distance, fever_tx), by = "country") %>%
   rename(distance = mean_distance) %>%
   # Filter PfPr outside of observed range
   left_join(select(dhs_var_summary, country, max_pfpr), by = "country") %>%
   filter(pfpr <= max_pfpr) %>%
   mutate(sma_prevalence = gompertz(pfpr = pfpr,
                                    distance = distance,
+                                   fever_tx = fever_tx,
                                    global_capacity = global_capacity, 
                                    country_capacity = country_capacity,
                                    distance_beta = distance_beta,
                                    pfpr_beta = pfpr_beta,
+                                   tx_beta = tx_beta,
                                    shift = shift))
 
 dhs_pfpr_median_prediction <- dhs_pfpr_prediction %>%
@@ -115,17 +118,19 @@ dhs_pfpr_median_prediction <- dhs_pfpr_prediction %>%
 dhs_distance_prediction <- parameters %>%
   left_join(distance_df, by = character()) %>%
   # add mean pfpr for each country
-  left_join(select(dhs_var_summary, country, mean_pfpr), by = "country") %>%
+  left_join(select(dhs_var_summary, country, mean_pfpr, fever_tx), by = "country") %>%
   rename(pfpr = mean_pfpr) %>%
   # Filter distance outside of observed range
   left_join(select(dhs_var_summary, country, max_distance), by = "country") %>%
   filter(distance <= max_distance) %>%
   mutate(sma_prevalence = gompertz(pfpr = pfpr,
                                    distance = distance,
+                                   fever_tx = fever_tx,
                                    global_capacity = global_capacity, 
                                    country_capacity = country_capacity,
                                    distance_beta = distance_beta,
                                    pfpr_beta = pfpr_beta,
+                                   tx_beta = tx_beta,
                                    shift = shift))
 
 dhs_distance_median_prediction <- dhs_distance_prediction %>%
@@ -133,16 +138,18 @@ dhs_distance_median_prediction <- dhs_distance_prediction %>%
   summarise(sma_prevalence = median(sma_prevalence))
 
 pfpr_prediction <- parameters %>%
-  mutate(country_capacity = 0,
-         act = 0.5) %>%
+  mutate(country_capacity = 0) %>%
   left_join(pfpr_df, by = character()) %>%
-  mutate(distance = mean(dhs_var_summary$mean_distance)) %>%
+  mutate(distance = mean(dhs_var_summary$mean_distance),
+         fever_tx = mean(dhs_var_summary$fever_tx)) %>%
   mutate(sma_prevalence = gompertz(pfpr = pfpr,
                                    distance = distance,
+                                   fever_tx = fever_tx,
                                    global_capacity = global_capacity, 
                                    country_capacity = country_capacity,
                                    distance_beta = distance_beta,
                                    pfpr_beta = pfpr_beta,
+                                   tx_beta = tx_beta,
                                    shift = shift))
 
 pfpr_median_prediction <- pfpr_prediction %>%
@@ -153,49 +160,52 @@ pfpr_median_prediction <- pfpr_prediction %>%
 distance_prediction <- parameters %>%
   mutate(country_capacity = 0) %>%
   left_join(distance_df, by = character()) %>%
-  mutate(pfpr = mean(dhs_var_summary$mean_pfpr)) %>%
+  mutate(pfpr = mean(dhs_var_summary$mean_pfpr),
+         fever_tx = mean(dhs_var_summary$fever_tx)) %>%
   mutate(sma_prevalence = gompertz(pfpr = pfpr,
                                    distance = distance,
+                                   fever_tx = fever_tx,
                                    global_capacity = global_capacity, 
                                    country_capacity = country_capacity,
                                    distance_beta = distance_beta,
                                    pfpr_beta = pfpr_beta,
+                                   tx_beta = tx_beta,
                                    shift = shift))
 
 distance_median_prediction <- distance_prediction %>%
   group_by(distance) %>%
   summarise(sma_prevalence = median(sma_prevalence))
 
-
-
 paton_prediction <- parameters %>%
   filter(country %in% paton_var_summary$country) %>%
   left_join(pfpr_df, by = character()) %>%
-  left_join(select(paton_var_summary, country, mean_distance, mean_act), by = "country") %>%
-  rename(distance = mean_distance,
-         act = mean_act,
-    ) %>%
+  left_join(select(paton_var_summary, country, mean_distance, fever_tx), by = "country") %>%
+  rename(distance = mean_distance) %>%
   mutate(sma_prevalence = gompertz(pfpr = pfpr,
                                    distance = distance,
+                                   fever_tx = fever_tx,
                                    global_capacity = global_capacity, 
                                    country_capacity = country_capacity,
                                    distance_beta = distance_beta,
                                    pfpr_beta = pfpr_beta,
+                                   tx_beta = tx_beta,
                                    shift = shift),
          adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         community = inc1(prevalence = adjusted_sma_prevalence, recovery_rate = 1 / dur),
-         hospital = community / hosp,
-         p_hosp = 1 - p(hosp))
+         symptomatic_sma_prevalence = adjusted_sma_prevalence * prob_symptomatic,
+         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
+         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
+         hospital = community_recognised_sma * hosp,
+         p_hosp = hosp)
 
 paton_median_prediction <- paton_prediction %>%
   group_by(country, pfpr) %>%
-  summarise(community = median(community),
+  summarise(community = median(community_symptomatic_sma_inc),
             hospital = median(hospital),
             p_hosp = median(p_hosp))
 
 hospital_comunity <- paton_prediction %>%
-  select(country, pfpr, sample, community, hospital) %>%
-  pivot_longer(c(community, hospital), names_to = "location", values_to = "inc")
+  select(country, pfpr, sample, community_symptomatic_sma_inc, hospital) %>%
+  pivot_longer(c(community_symptomatic_sma_inc, hospital), names_to = "location", values_to = "inc")
 
 hospital_community_median <- hospital_comunity %>%
   group_by(country, pfpr, location) %>%
@@ -263,7 +273,8 @@ paton_fit <- ggplot() +
   ylab("Annual hospitalised incidence per 1000 children") +
   facet_wrap(~ country) +
   theme_bw() +
-  theme(strip.background = element_rect(fill = NA))
+  theme(strip.background = element_rect(fill = NA)) +
+  ylim(0, 4)
 ################################################################################
 
 ### Hospitalisation plot #######################################################
@@ -282,6 +293,12 @@ ggplot(paton_prediction, aes(x = p_hosp)) +
   geom_histogram(bins = 30, fill = "darkblue") +
   facet_wrap(~country, scales = "free_y") +
   theme_bw()
+
+paton_prediction %>%
+  group_by(country) %>%
+  summarise(lower = quantile(p_hosp, 0.025),
+            median = median(p_hosp),
+            upper = quantile(p_hosp, 0.975))
 ################################################################################
 
 ### Random effects #############################################################
@@ -297,8 +314,7 @@ ggplot(parameters, aes(x = country, fill = country, y = country_capacity)) +
 
 
 ### Parameter plots ############################################################
-p <- c("global_capacity", "pfpr_beta", "distance_beta", "shift", "group_sd",
-       "dur")
+p <- c(names(select(global_parameters, -sample)), "hosp_Kenya", "hosp_Tanzania", "hosp_Uganda")
 
 # Global parameters
 pp <- plot_par(mcmc, p, display = FALSE)
@@ -313,3 +329,42 @@ cor <- apply(combn(p, 2), 2, function(x){
 })
 correlation_plots <- patchwork::wrap_plots(cor) + plot_layout(guides = "collect")
 ################################################################################
+
+### Validation against rtss ####################################################
+rtss <- read.csv("ignore/rtss/rtss_trial_data_summary.csv")
+
+cp <- country_parameters %>%
+  select(country, sample, country_capacity)
+
+rtss_prediction <- global_parameters %>%
+  left_join(rtss, by = character()) %>%
+  filter(!site == "total") %>%
+  left_join(cp, by = c("sample", "country")) %>%
+  replace_na(list(country_capacity = 0)) %>%
+  mutate(sma_prevalence = gompertz(pfpr = pfpr,
+                                   distance = 4,
+                                   fever_tx = 1,
+                                   global_capacity = global_capacity, 
+                                   country_capacity = country_capacity,
+                                   distance_beta = distance_beta,
+                                   pfpr_beta = pfpr_beta,
+                                   tx_beta = tx_beta,
+                                   shift = shift),
+         adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence, age_out_lower  = 5, age_out_upper = 17),
+         symptomatic_sma_prevalence = adjusted_sma_prevalence * prob_symptomatic,
+         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur, py = py),
+         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise) %>%
+  group_by(sample) %>%
+  summarise(community_symptomatic_sma_inc = sum(community_symptomatic_sma_inc),
+            community_recognised_sma = sum(community_recognised_sma)) %>%
+  ungroup() %>%
+  pivot_longer(-sample, names_to = "measure", values_to = "inc")
+
+ggplot(rtss_prediction, aes(x = measure, y = inc)) +
+  geom_boxplot() +
+  # Add in RTSS incidence
+  geom_hline(yintercept = 54, lty = 2) +
+  theme_bw() +
+  ylim(0, 500)
+################################################################################
+

@@ -1,7 +1,6 @@
 # Functions to process raw DHS datafiles
 
-
-
+# Categorise severe illness free-text/labels into a standard set
 severe_illness_categorise <- function(data, symptom_var){
   illness_index <- grepl(symptom_var, names(data))
   data <- data[,illness_index]
@@ -48,12 +47,12 @@ severe_illness_categorise <- function(data, symptom_var){
 }
 
 # Process household member data
-## kr_data: PR DHS file
+## pr_data: PR DHS file
 process_pr <- function(pr_data, symptom_var){
   
   # Severe illness symptoms 
   ## Not mutually exclusive so coded as individual variables)
-  ## Slightly different codes across surveys so seach by label
+  ## Slightly different codes across surveys so search by label
   sev_illness <- severe_illness_categorise(pr_data, symptom_var)
   
   pr_data <- pr_data %>%
@@ -115,7 +114,7 @@ process_pr <- function(pr_data, symptom_var){
 }
 
 # Process Children's data
-## pr_data: KR DHS file
+## kr_data: KR DHS file
 process_kr <- function(kr_data){
   possible_missing <- c("s1045", "v467d", "ml13da", "ml13aa", "ml13ab")
   is_missing <- possible_missing[!possible_missing %in% colnames(kr_data)]
@@ -130,6 +129,7 @@ process_kr <- function(kr_data){
       alive = b5,
       fever = h22,
       blood_taken = h47,
+      no_fever_treatment = h32y,
       fever_treatment_location = h46a,
       convenience_hf_location = s1045,
       distance_to_health_facility = v467d) %>%
@@ -146,12 +146,12 @@ process_kr <- function(kr_data){
                        TRUE ~ "None"),
            act = ifelse(antimalarial == "ACT", "yes", "no")) %>%
     dplyr::select(country_code, cluster, household, child_line_number, alive,
-                  fever, blood_taken, fever_treatment_location, antimalarial, act,
+                  fever, blood_taken, no_fever_treatment, fever_treatment_location, antimalarial, act,
                   convenience_hf_location, distance_to_health_facility) %>%
     # replace codes with factor labels
     mutate_if(is.labelled, as_factor) %>%
     mutate(child_line_number = as.integer(child_line_number),
-           cluster = as.integer(cluster))
+           cluster = as.integer(cluster),)
   
   # For a small number of surveys there are a small number (<5) duplicated records. Remove them.
   kr_data <- kr_data[!duplicated(kr_data[,c("cluster", "country_code", "household", "child_line_number")]),]

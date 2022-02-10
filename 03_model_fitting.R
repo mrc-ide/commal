@@ -1,3 +1,5 @@
+### Model fitting ##############################################################
+
 # Load packages
 library(drjacoby)
 library(dplyr)
@@ -13,13 +15,14 @@ source("R/model_functions.R")
 source("R/likelihood_prior.R")
 
 # Load data
-paton <- readRDS("ignore/prob_hosp/paton_inferred.rds")%>%
-  select(pfpr, sma, distance, act, py, country) %>%
+paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
+  select(pfpr, sma, distance, fever_tx, py, country) %>%
   split(.$country)
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
 
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
-  select(pfpr, sma_microscopy, distance, country) %>%
+  #filter(country %in% paton_countries) %>%
+  select(pfpr, sma_microscopy, distance, fever_tx, country) %>%
   split(.$country)
 cn <- as.character(sapply(dhs_sma, function(x)x$country[1]))
 names(dhs_sma) <- cn
@@ -31,23 +34,26 @@ n_countries <- length(dhs_sma)
 
 # Data input list for MCMC
 data_list <- list(
-  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "distance", "sma_microscopy")]),
-  paton = lapply(paton, function(x) x[,c("pfpr", "distance", "act", "py", "sma")])
+  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "distance", "fever_tx", "sma_microscopy")]),
+  paton = lapply(paton, function(x) x[,c("pfpr", "distance", "fever_tx", "py", "sma")])
 )
 
 # Helper functions for MCMC
 misc <- list(
   model_function = gompertz,
   sma_prev_age_standardise = sma_prev_age_standardise,
-  mean_duration = mean_duration
+  n_countries = n_countries
 )
 
 # Define parameters
 global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, init = -6, block = 1:(n_countries+3), 
-                               name = "shift", min = 0, max = 50, init = 5, block = 1:(n_countries+3), 
-                               name = "pfpr_beta", min = 0, max = 50, init = 10, block = 1:(n_countries+3), 
-                               name = "distance_beta", min = -Inf, max = Inf, init = 0, block = 1:(n_countries+3),
+                               name = "shift", min = 0, max = 50, init = 1, block = 1:(n_countries+3), 
+                               name = "pfpr_beta", min = -30, max = 30, init = 5, block = 1:(n_countries+3), 
+                               name = "distance_beta", min = -10, max = 10, init = 0, block = 1:(n_countries+3),
+                               name = "tx_beta", min = -10, max = 10, init = 0, block = 1:(n_countries+3), 
+                               name = "prob_symptomatic", min = 0, max = 1, init = 0.5, block = (n_countries+1):(n_countries+3),
                                name = "dur", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
+                               name = "prob_recognise", min = 0, max = Inf, init = 0.5, block = (n_countries+1):(n_countries+3),
                                name = "group_sd", min = 0, max = Inf, init = 1, block = (n_countries+4))
 country_params <- data.frame(
   name = paste0("ccc_", country_names),
@@ -65,9 +71,9 @@ country_params$block[[3]] <- c(3, (n_countries+3), (n_countries+4))
 hosp_params <- data.frame(
   name = paste0("hosp_", paton_countries),
   min = 0,
-  max = 1000
+  max = 1
 )
-hosp_params$init <- as.list(rep(1, 3))
+hosp_params$init <- as.list(rep(0.5, 3))
 hosp_params$block <- as.list((n_countries+1):(n_countries+3))
 df_params <- bind_rows(global_params, hosp_params, country_params)
 
@@ -79,11 +85,12 @@ mcmc <- run_mcmc(data = data_list,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 5e3,
-                 samples = 5e3,
+                 burnin = 5000,
+                 samples = 5000,
                  rungs = 1,
-                 chains = 1)
+                 chains = 4)
 #parallel::stopCluster(cl)
-#saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
+saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 
+plot_par(mcmc)
 

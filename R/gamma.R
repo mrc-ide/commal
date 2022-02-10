@@ -1,4 +1,4 @@
-# Gamma reparameterised with mean and variance.
+# Gamma re-parameterised with mean and variance.
 
 rgamma2 <- function(n, mean, var){
   shape = (mean ^ 2) / var
