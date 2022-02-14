@@ -17,7 +17,7 @@ dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
   #filter(country %in% unique(paton$country)) %>%
   select(pfpr, sma_microscopy, distance, fever_tx, country)
 ### Wrangle parameters #########################################################
-samples <- sample_chains(mcmc, 300)
+samples <- sample_chains(mcmc, 200)
 
 global_parameters <- samples %>%
   select(-contains("ccc_"), -contains("hosp"))
@@ -35,6 +35,13 @@ parameters <- global_parameters %>%
   left_join(hospital_parameters, by = c("country", "sample")) %>%
   select(country, sample, everything())
 ################################################################################
+
+saveRDS(parameters)
+
+
+
+
+
 
 ### Prepare and summarise DHS data #############################################
 dhs_var_summary <- dhs_sma %>%
@@ -191,9 +198,31 @@ paton_prediction <- parameters %>%
                                    tx_beta = tx_beta,
                                    shift = shift),
          adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
+         example_community_all_symptomatic_sma_inc = inc1(prevalence = adjusted_sma_prevalence, recovery_rate = 1 / dur),
          symptomatic_sma_prevalence = adjusted_sma_prevalence * prob_symptomatic,
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
+         hospital = community_recognised_sma * hosp,
+         p_hosp = hosp)
+
+paton_all_sypmtomatic_all_recognise_prediction <- parameters %>%
+  filter(country %in% paton_var_summary$country) %>%
+  left_join(pfpr_df, by = character()) %>%
+  left_join(select(paton_var_summary, country, mean_distance, fever_tx), by = "country") %>%
+  rename(distance = mean_distance) %>%
+  mutate(sma_prevalence = gompertz(pfpr = pfpr,
+                                   distance = distance,
+                                   fever_tx = fever_tx,
+                                   global_capacity = global_capacity, 
+                                   country_capacity = country_capacity,
+                                   distance_beta = distance_beta,
+                                   pfpr_beta = pfpr_beta,
+                                   tx_beta = tx_beta,
+                                   shift = shift),
+         adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
+         symptomatic_sma_prevalence = adjusted_sma_prevalence * 1,
+         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
+         community_recognised_sma = community_symptomatic_sma_inc * 1,
          hospital = community_recognised_sma * hosp,
          p_hosp = hosp)
 
@@ -311,7 +340,6 @@ ggplot(parameters, aes(x = country, fill = country, y = country_capacity)) +
   coord_flip() +
   theme_bw()
 ################################################################################
-
 
 ### Parameter plots ############################################################
 p <- c(names(select(global_parameters, -sample)), "hosp_Kenya", "hosp_Tanzania", "hosp_Uganda")

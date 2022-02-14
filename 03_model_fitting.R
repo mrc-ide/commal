@@ -46,21 +46,23 @@ misc <- list(
 )
 
 # Define parameters
-global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, init = -6, block = 1:(n_countries+3), 
-                               name = "shift", min = 0, max = 50, init = 1, block = 1:(n_countries+3), 
-                               name = "pfpr_beta", min = -30, max = 30, init = 5, block = 1:(n_countries+3), 
-                               name = "distance_beta", min = -10, max = 10, init = 0, block = 1:(n_countries+3),
-                               name = "tx_beta", min = -10, max = 10, init = 0, block = 1:(n_countries+3), 
-                               name = "prob_symptomatic", min = 0, max = 1, init = 0.5, block = (n_countries+1):(n_countries+3),
-                               name = "dur", min = 0, max = Inf, init = 365, block = (n_countries+1):(n_countries+3),
-                               name = "prob_recognise", min = 0, max = Inf, init = 0.5, block = (n_countries+1):(n_countries+3),
-                               name = "group_sd", min = 0, max = Inf, init = 1, block = (n_countries+4))
+global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, init = c(-12, -10, -8, -6), block = 1:(n_countries+3), 
+                               name = "shift", min = 0, max = 50, init = 1:4, block = 1:(n_countries+3), 
+                               name = "pfpr_beta", min = -30, max = 30, init = 6:9, block = 1:(n_countries+3), 
+                               name = "distance_beta", min = -10, max = 10, init = -1:2, block = 1:(n_countries+3),
+                               name = "tx_beta", min = -10, max = 10, init = -1:2, block = 1:(n_countries+3), 
+                               name = "prob_symptomatic", min = 0, max = 1, init = c(0.3, 0.4, 0.5, 0.6), block = (n_countries+1):(n_countries+3),
+                               name = "dur", min = 0, max = Inf, init = c(2, 4, 6, 8), block = (n_countries+1):(n_countries+3),
+                               name = "prob_recognise", min = 0, max = Inf, init = c(0.3, 0.4, 0.5, 0.6), block = (n_countries+1):(n_countries+3),
+                               name = "group_sd", min = 0, max = Inf, init = c(0.5, 0.75, 1, 1.25), block = (n_countries+4))
 country_params <- data.frame(
   name = paste0("ccc_", country_names),
   min = -10,
   max = 10
 )
-country_params$init <- as.list(rep(0, n_countries))
+country_params$init <- lapply(1:n_countries, function(x){
+  c(-0.4, -0.2, 0, 0.2)
+  })
 country_params$block <- lapply(1:n_countries, function(x){
   c(x, (n_countries+4))
 })
@@ -73,7 +75,9 @@ hosp_params <- data.frame(
   min = 0,
   max = 1
 )
-hosp_params$init <- as.list(rep(0.5, 3))
+hosp_params$init <- lapply(1:3, function(x){
+  c(0.2, 0.4, 0.6, 0.8)
+})
 hosp_params$block <- as.list((n_countries+1):(n_countries+3))
 df_params <- bind_rows(global_params, hosp_params, country_params)
 
@@ -85,12 +89,35 @@ mcmc <- run_mcmc(data = data_list,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 5000,
-                 samples = 5000,
+                 burnin = 200000,
+                 samples = 200000,
                  rungs = 1,
                  chains = 4)
 #parallel::stopCluster(cl)
 saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 
 plot_par(mcmc)
+
+### Wrangle parameters #########################################################
+samples <- sample_chains(mcmc, 100)
+
+global_parameters <- samples %>%
+  select(-contains("ccc_"), -contains("hosp"))
+
+country_parameters <- samples %>%
+  select(contains("ccc_"), sample) %>%
+  pivot_longer(-sample, names_to = "country", values_to = "country_capacity", names_prefix = "ccc_") 
+
+hospital_parameters <- samples %>%
+  select(contains("hosp_"), sample) %>%
+  pivot_longer(-sample, names_to = "country", values_to = "hosp", names_prefix = "hosp_") 
+
+parameters <- global_parameters %>%
+  left_join(country_parameters, by = "sample") %>%
+  left_join(hospital_parameters, by = c("country", "sample")) %>%
+  select(country, sample, everything())
+
+saveRDS(parameters, "ignore/prob_hosp/mcmc_fits/parameters.rds")
+################################################################################
+
 
