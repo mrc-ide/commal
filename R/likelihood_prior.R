@@ -57,6 +57,5 @@ r_logprior <- function(params, misc){
     # Prior from Shellenberg (2003) Figure 2
     sum(dbeta(params["prob_recognise"], 14, 43 - 14, log = TRUE)) +
     sum(dlnorm(params["dur"], 0, 1, log = TRUE))
-    #sum(dgamma2(params["dur"], 2, 100, log = TRUE))
   return(ret)
 }

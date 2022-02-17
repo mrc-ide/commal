@@ -5,6 +5,7 @@ library(drjacoby)
 library(dplyr)
 library(ggplot2)
 library(patchwork)
+library(tidyr)
 
 # Load functions
 source("R/prevalence_incidence.R")
@@ -94,12 +95,22 @@ mcmc <- run_mcmc(data = data_list,
                  rungs = 1,
                  chains = 4)
 #parallel::stopCluster(cl)
-saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
+saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc2.rds")
 
 plot_par(mcmc)
 
 ### Wrangle parameters #########################################################
-samples <- sample_chains(mcmc, 100)
+#samples_all <- mcmc$output %>%
+#  filter(phase == "sampling", iteration > 20000)
+
+#samples <- samples_all[as.integer(seq(1, nrow(samples_all), length.out = 1000)),] %>%
+#  mutate(sample = 1:n()) %>%
+#  select(-c(phase, iteration, logprior, loglikelihood, chain))
+
+samples <- sample_chains(mcmc, 300)
+
+
+
 
 global_parameters <- samples %>%
   select(-contains("ccc_"), -contains("hosp"))

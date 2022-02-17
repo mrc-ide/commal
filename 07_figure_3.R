@@ -21,11 +21,12 @@ parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   )
 
 p1 <- parameters %>% 
+  slice_sample(n = 100) %>%
   select(c(sample,a:d)) %>%
   pivot_longer(-sample, names_to = "step", values_to = "n") %>%
   mutate(step = factor(step,
                           levels = c("a", "b", "c", "d"),
-                          labels = c("Malaria +ve\nhb<5g/dL",
+                          labels = c("LM+ve &\nhb < 5g/dL",
                                      "Symptomatic\nSMA",
                                      "Symptoms\nrecognised",
                                      "Access\nhospital")))
@@ -37,18 +38,10 @@ fig3 <- ggplot(p1, aes(x = step, y = n, col = step)) +
   xlab("") + 
   theme_bw() + 
   theme(legend.position = "none") +
-  geom_curve(
-    aes(x = "Symptomatic\nSMA", y = 85, xend = "Access\nhospital", yend = 25),
-    arrow = arrow(length = unit(0.03, "npc")),
-    curvature = -0.4,
-    col = "black",
-    lineend = "round"
-  ) +
-  geom_text(
-    aes(label = "Care\ngap",
-    x = 3.5,
-    y = 80),
-    col = "black"
-  )
+  coord_cartesian(xlim = c(1, 4.5)) +
+  geom_segment(x = 4.65, xend = 4.65, y = median(parameters$b), yend = median(parameters$d), col = "black") +
+  geom_segment(x = 4.55, xend = 4.65, y = median(parameters$b), yend = median(parameters$b), col = "black") +
+  geom_segment(x = 4.55, xend = 4.65, y = median(parameters$d), yend = median(parameters$d), col = "black") +
+  geom_text(aes(label = "Care\ngap", x = 4.9 , y = (median(parameters$b) + median(parameters$d)) / 2), col = "black")
 
 ggsave("figures/fig3.png", fig3, height = 6, width = 6)

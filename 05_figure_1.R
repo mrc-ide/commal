@@ -14,12 +14,14 @@ dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   select(sample, country, global_capacity, country_capacity, shift, pfpr_beta, distance_beta, tx_beta) %>%
-  mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country))
+  mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country)) %>%
+  group_by(country) %>%
+  slice_sample(n =  100) %>%
+  ungroup()
 
 # Best fit trend
 fit_median <- parameters %>%
   select(-sample, -country, -country_capacity) %>%
-  summarise_all(.funs = median) %>%
   mutate(country_capacity = 0) %>%
   left_join(data.frame(
     pfpr = seq(0, 0.7, 0.01),
@@ -29,7 +31,9 @@ fit_median <- parameters %>%
   ) %>%
   mutate(
     smapr = pmap_dbl(., gompertz)
-  )
+  ) %>%
+  group_by(pfpr) %>%
+  summarise(smapr = median(smapr))
 
 # Draws from fit
 fit_trend <- parameters %>%
@@ -69,8 +73,6 @@ country_summary <- dhs_sma %>%
 
 country_fit_median <- parameters %>%
   select(-sample) %>%
-  group_by(country) %>%
-  summarise_all(.funs = median) %>%
   left_join(data.frame(
     pfpr = seq(0, 0.9, 0.01)),
     by = character()
@@ -80,7 +82,9 @@ country_fit_median <- parameters %>%
   select(-pfprq) %>%
   mutate(
     smapr = pmap_dbl(select(., -country), gompertz)
-  )
+  ) %>%
+  group_by(country, pfpr) %>%
+  summarise(smapr = median(smapr))
 
 country_fit <- parameters %>%
   left_join(data.frame(
