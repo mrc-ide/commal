@@ -6,13 +6,9 @@ r_loglike <- function(params, data, misc) {
   
   if(block %in% 1:n_countries){
     prob_dhs <- misc$model_function(pfpr = data$dhs[[block]]$pfpr,
-                                    distance = data$dhs[[block]]$distance,
-                                    fever_tx = data$dhs[[block]]$fever_tx,
                                     global_capacity = params["global_capacity"],
                                     country_capacity = country_capacity[block],
-                                    distance_beta = params["distance_beta"],
                                     pfpr_beta = params["pfpr_beta"],
-                                    tx_beta = params["tx_beta"],
                                     shift = params["shift"])
     loglike <- sum(dbinom(data$dhs[[block]]$sma_microscopy, 1, prob_dhs, log = T))
   }
@@ -20,13 +16,9 @@ r_loglike <- function(params, data, misc) {
   if(block %in% (n_countries + 1):(n_countries + 3)){
     paton_block <- block - n_countries
     prob_paton <- misc$model_function(pfpr = data$paton[[paton_block]]$pfpr,
-                                      distance = data$paton[[paton_block]]$distance,
-                                      fever_tx = data$paton[[paton_block]]$fever_tx,
                                       global_capacity = params["global_capacity"],
                                       country_capacity = country_capacity[paton_block],
-                                      distance_beta = params["distance_beta"],
                                       pfpr_beta = params["pfpr_beta"],
-                                      tx_beta = params["tx_beta"],
                                       shift = params["shift"])
       
     prob_paton <- misc$sma_prev_age_standardise(prob_paton)
@@ -37,7 +29,6 @@ r_loglike <- function(params, data, misc) {
     recognised_inc <- inc * params["prob_recognise"]
     hosp_inc <- recognised_inc * country_hosp[paton_block]
     loglike <- sum(dnbinom(data$paton[[paton_block]]$sma, mu = hosp_inc, size = 0.95, log = T))
-    # loglike <- sum(dpois(data$paton[[paton_block]]$sma, hosp_inc, log = T))
   }
   
   if(block == (n_countries + 4)){
