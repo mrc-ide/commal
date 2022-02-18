@@ -1,9 +1,9 @@
-# Probability -> odds
+# Probability from odds
 p <- function(odds){
   odds / (1 + odds)
 }
 
-# Odds -> probability
+# Odds from probability
 o <- function(prob){
   prob / (1 - prob)
 }

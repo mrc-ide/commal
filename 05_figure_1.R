@@ -13,20 +13,15 @@ dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
 
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
-  select(sample, country, global_capacity, country_capacity, shift, pfpr_beta, distance_beta, tx_beta) %>%
-  mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country)) %>%
-  group_by(country) %>%
-  slice_sample(n =  100) %>%
-  ungroup()
+  select(sample, country, global_capacity, country_capacity, shift, pfpr_beta) %>%
+  mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country))
 
 # Best fit trend
 fit_median <- parameters %>%
   select(-sample, -country, -country_capacity) %>%
   mutate(country_capacity = 0) %>%
   left_join(data.frame(
-    pfpr = seq(0, 0.7, 0.01),
-    distance = 4,
-    fever_tx = 0.5),
+    pfpr = seq(0, 0.7, 0.01)),
     by = character()
   ) %>%
   mutate(
@@ -40,9 +35,7 @@ fit_trend <- parameters %>%
   select(-country, -country_capacity) %>%
   mutate(country_capacity = 0) %>%
   left_join(data.frame(
-    pfpr = seq(0, 0.7, 0.01),
-    distance = 4,
-    fever_tx = 0.5),
+    pfpr = seq(0, 0.7, 0.01)),
     by = character()
   ) %>%
   mutate(
@@ -58,16 +51,14 @@ country_data <- dhs_sma %>%
     pfprl = quantile(pfpr, 0.025),
     pfpru = quantile(pfpr, 0.975),
     pfpr = mean(pfpr),
-    sma = mean(sma_microscopy),
-    smal = binom::binom.exact(sum(sma_microscopy), n())$lower,
-    smau = binom::binom.exact(sum(sma_microscopy), n())$upper
+    sma = mean(symp_sma_microscopy),
+    smal = binom::binom.exact(sum(symp_sma_microscopy), n())$lower,
+    smau = binom::binom.exact(sum(symp_sma_microscopy), n())$upper
   )
 
 country_summary <- dhs_sma %>%
   group_by(country) %>%
   summarise(
-    distance = mean(distance),
-    fever_tx = mean(fever_tx),
     pfprq = pmax(0.2, max(pfpr))
   )
 
@@ -106,7 +97,7 @@ fig1a <- ggplot() +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab(expression(SMA~Pr[0.5-5])) + 
   theme_bw() +
-  coord_cartesian(ylim = c(0, 0.0075))
+  coord_cartesian(ylim = c(0, 0.004))
 
 ### Figure 1b, fit to country data ###
 breaks <- function(){

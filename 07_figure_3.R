@@ -8,26 +8,25 @@ library(ggplot2)
 library(patchwork)
 
 n <- 100000
-prev <- 0.001403431
+prev <- 0.0006291983
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   filter(country %in% c("Uganda", "Tanzania", "Kenya")) %>%
-  select(sample, prob_symptomatic, prob_recognise, hosp) %>%
+  select(sample, prob_recognise, hosp) %>%
   mutate(
     a = n * prev,
-    b = a * prob_symptomatic,
-    c = b * prob_recognise,
-    d = c * hosp
+    b = a * prob_recognise,
+    c = b * hosp,
+    a = a+ c
   )
 
 p1 <- parameters %>% 
   slice_sample(n = 100) %>%
-  select(c(sample,a:d)) %>%
+  select(c(sample,a:c)) %>%
   pivot_longer(-sample, names_to = "step", values_to = "n") %>%
   mutate(step = factor(step,
-                          levels = c("a", "b", "c", "d"),
-                          labels = c("LM+ve &\nhb < 5g/dL",
-                                     "Symptomatic\nSMA",
+                          levels = c("a", "b", "c"),
+                          labels = c("Symptomatic\nSMA",
                                      "Symptoms\nrecognised",
                                      "Access\nhospital")))
 
@@ -38,10 +37,10 @@ fig3 <- ggplot(p1, aes(x = step, y = n, col = step)) +
   xlab("") + 
   theme_bw() + 
   theme(legend.position = "none") +
-  coord_cartesian(xlim = c(1, 4.5)) +
-  geom_segment(x = 4.65, xend = 4.65, y = median(parameters$b), yend = median(parameters$d), col = "black") +
-  geom_segment(x = 4.55, xend = 4.65, y = median(parameters$b), yend = median(parameters$b), col = "black") +
-  geom_segment(x = 4.55, xend = 4.65, y = median(parameters$d), yend = median(parameters$d), col = "black") +
-  geom_text(aes(label = "Care\ngap", x = 4.9 , y = (median(parameters$b) + median(parameters$d)) / 2), col = "black")
+  coord_cartesian(xlim = c(1, 3.5)) +
+  geom_segment(x = 3.65, xend = 3.65, y = median(parameters$a), yend = median(parameters$c), col = "black") +
+  geom_segment(x = 3.55, xend = 3.65, y = median(parameters$a), yend = median(parameters$a), col = "black") +
+  geom_segment(x = 3.55, xend = 3.65, y = median(parameters$c), yend = median(parameters$c), col = "black") +
+  geom_text(aes(label = "Care\ngap", x = 3.9 , y = (median(parameters$b) + median(parameters$c)) / 2), col = "black")
 
 ggsave("figures/fig3.png", fig3, height = 6, width = 6)

@@ -17,13 +17,13 @@ source("R/likelihood_prior.R")
 
 # Load data
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
-  select(pfpr, sma, distance, fever_tx, py, country) %>%
+  select(pfpr, sma, distance, py, country) %>%
   split(.$country)
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
 
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
   #filter(country %in% paton_countries) %>%
-  select(pfpr, sma_microscopy, distance, fever_tx, country) %>%
+  select(pfpr, symp_sma_microscopy, country) %>%
   split(.$country)
 cn <- as.character(sapply(dhs_sma, function(x)x$country[1]))
 names(dhs_sma) <- cn
@@ -35,8 +35,8 @@ n_countries <- length(dhs_sma)
 
 # Data input list for MCMC
 data_list <- list(
-  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "distance", "fever_tx", "sma_microscopy")]),
-  paton = lapply(paton, function(x) x[,c("pfpr", "distance", "fever_tx", "py", "sma")])
+  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "symp_sma_microscopy")]),
+  paton = lapply(paton, function(x) x[,c("pfpr", "distance", "py", "sma")])
 )
 
 # Helper functions for MCMC
@@ -50,11 +50,10 @@ misc <- list(
 global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, init = c(-12, -10, -8, -6), block = 1:(n_countries+3), 
                                name = "shift", min = 0, max = 50, init = 1:4, block = 1:(n_countries+3), 
                                name = "pfpr_beta", min = -30, max = 30, init = 6:9, block = 1:(n_countries+3), 
-                               name = "distance_beta", min = -10, max = 10, init = -1:2, block = 1:(n_countries+3),
-                               name = "tx_beta", min = -10, max = 10, init = -1:2, block = 1:(n_countries+3), 
-                               name = "prob_symptomatic", min = 0, max = 1, init = c(0.3, 0.4, 0.5, 0.6), block = (n_countries+1):(n_countries+3),
                                name = "dur", min = 0, max = Inf, init = c(2, 4, 6, 8), block = (n_countries+1):(n_countries+3),
                                name = "prob_recognise", min = 0, max = Inf, init = c(0.3, 0.4, 0.5, 0.6), block = (n_countries+1):(n_countries+3),
+                               name = "dist_hl", min = 100000, max = 100000, init = rep(100000, 4), block = (n_countries+1):(n_countries+3),
+                               name = "overdispersion", min = 0, max = 50, init = 1:4, block = (n_countries+1):(n_countries+3),
                                name = "group_sd", min = 0, max = Inf, init = c(0.5, 0.75, 1, 1.25), block = (n_countries+4))
 country_params <- data.frame(
   name = paste0("ccc_", country_names),
@@ -74,13 +73,15 @@ country_params$block[[3]] <- c(3, (n_countries+3), (n_countries+4))
 hosp_params <- data.frame(
   name = paste0("hosp_", paton_countries),
   min = 0,
-  max = 1
+  max = 100
 )
 hosp_params$init <- lapply(1:3, function(x){
   c(0.2, 0.4, 0.6, 0.8)
 })
 hosp_params$block <- as.list((n_countries+1):(n_countries+3))
 df_params <- bind_rows(global_params, hosp_params, country_params)
+
+df_params$init <- lapply(df_params$init, function(x)x[1])
 
 # Run MCMC
 #cl <- parallel::makeCluster(4)
@@ -90,27 +91,17 @@ mcmc <- run_mcmc(data = data_list,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 200000,
-                 samples = 200000,
+                 burnin = 3000,
+                 samples = 3000,
                  rungs = 1,
-                 chains = 4)
+                 chains = 1)
 #parallel::stopCluster(cl)
-saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc2.rds")
+saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 
 plot_par(mcmc)
 
 ### Wrangle parameters #########################################################
-#samples_all <- mcmc$output %>%
-#  filter(phase == "sampling", iteration > 20000)
-
-#samples <- samples_all[as.integer(seq(1, nrow(samples_all), length.out = 1000)),] %>%
-#  mutate(sample = 1:n()) %>%
-#  select(-c(phase, iteration, logprior, loglikelihood, chain))
-
-samples <- sample_chains(mcmc, 300)
-
-
-
+samples <- sample_chains(mcmc, 500)
 
 global_parameters <- samples %>%
   select(-contains("ccc_"), -contains("hosp"))

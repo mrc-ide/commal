@@ -26,11 +26,14 @@ dhs_sma <- dhs_data_raw  %>%
   mutate(
     # Severe malaria anaemia
     sma_rdt = ifelse(anemia_level == "severe" & rdt == "positive", 1, 0),
-    sma_microscopy = ifelse(anemia_level == "severe" & microscopy == "positive", 1, 0)
+    sma_microscopy = ifelse(anemia_level == "severe" & microscopy == "positive", 1, 0),
+    symp_sma_microscopy = ifelse(anemia_level == "severe" & microscopy == "positive" & 
+                                   (fever == "yes" | Impaired_consciousness == "yes" | Impaired_breathing == "yes"), 1, 0)
   ) %>%
+  filter(!is.na(symp_sma_microscopy)) %>%
   rename(pfpr = prevalence) %>%
   left_join(treatment_access_admin, by = c("country", "admin1")) %>%
-  dplyr::select(iso, country, cluster, survey_year, year, pfpr, rdt, microscopy, distance,fever_tx, act, hb, sma_rdt, sma_microscopy) %>%
+  dplyr::select(iso, country, cluster, survey_year, year, pfpr, rdt, microscopy, distance,fever_tx, act, hb, sma_rdt, sma_microscopy, symp_sma_microscopy) %>%
   mutate(countryn = as.numeric(factor(country, levels = country_levels)))
 
 dim(dhs_sma)

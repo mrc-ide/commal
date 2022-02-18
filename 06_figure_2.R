@@ -17,22 +17,38 @@ paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   filter(country %in% c("Uganda", "Tanzania", "Kenya"))
 
+compare <- paton %>%
+  left_join(parameters, by = "country") %>%
+  mutate(sma_prevalence = pmap_dbl(select(., -country, -py,  -dur, -prob_recognise, -hosp, -dist_hl, -distance, -fever_tx, -py, -sma, -sample, -group_sd, -overdispersion ), gompertz),
+         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
+         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur, py),
+         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
+         hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance)) %>%
+  group_by(country, pfpr, distance, sma) %>%
+  summarise(hospital = median(hospital))
+
+compare_plot <- ggplot(compare, aes(y = hospital, x = sma, col = country)) +
+  geom_point() +
+  geom_abline() +
+  theme_bw() +
+  xlim(0, 100) + 
+  ylim(0, 100) + 
+  coord_fixed()
+
 paton_summary <- paton %>%
   group_by(country) %>%
-  summarise(distance = weighted.mean(distance, py),
-            fever_tx = weighted.mean(fever_tx, py),
-            py = sum(py))
+  summarise(py = sum(py),
+            distance = median(distance))
 
 fit_median <- parameters %>%
   select(-sample, -group_sd) %>%
   left_join(paton_summary, by = "country") %>%
   left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -country, -py, -prob_symptomatic, -dur, -prob_recognise, -hosp), gompertz),
-         adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         symptomatic_sma_prevalence = adjusted_sma_prevalence * prob_symptomatic,
+  mutate(sma_prevalence = pmap_dbl(select(., -country, -py,  -dur, -prob_recognise, -hosp, -dist_hl, -distance, -overdispersion), gompertz),
+         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma *  rlogit(hosp  -0.19 * distance)) %>%
+         hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance)) %>%
   group_by(pfpr, country) %>%
   summarise(hospital = median(hospital))
 
@@ -43,12 +59,11 @@ fit_draw <- parameters %>%
   select(-group_sd) %>%
   left_join(paton_summary, by = "country") %>%
   left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -prob_symptomatic, -dur, -prob_recognise, -hosp, -sample, -country, -py), gompertz),
-         adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         symptomatic_sma_prevalence = adjusted_sma_prevalence * prob_symptomatic,
+  mutate(sma_prevalence = pmap_dbl(select(., -dur, -prob_recognise, -hosp, -sample, -country, -py, -dist_hl, -distance, -overdispersion), gompertz),
+         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * hosp)
+         hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance))
 
 paton_data_summary <- paton %>%
   bind_rows() %>%
@@ -57,7 +72,7 @@ paton_data_summary <- paton %>%
 paton_model_prediction <- data.frame(pfpr = seq(0, 0.8, 0.01)) %>%
   mutate(hospital = paton_sma(pfpr))
 
-ggplot() +
+paton_plot <- ggplot() +
   geom_line(data = fit_draw, aes(x = pfpr, y = hospital, group = sample), alpha = 0.2, col = "#00798c") +
   geom_line(data = fit_median, aes(x = pfpr, y = hospital, col = country), size = 1) +
   geom_line(data = paton_model_prediction, aes(x = pfpr, y = hospital), col = "#d1495b") +
@@ -78,10 +93,8 @@ fit_median_combo <- parameters %>%
   select(-sample, -group_sd) %>%
   left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
   # Py weighted country-specific variables:
-  mutate(distance = 10.4, fever_tx = 0.75) %>%#, country_capacity = -0.43, hosp = 0.31) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -country, -prob_symptomatic, -dur, -prob_recognise, -hosp), gompertz),
-         adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         symptomatic_sma_prevalence = adjusted_sma_prevalence * prob_symptomatic,
+  mutate(sma_prevalence = pmap_dbl(select(., -country,  -dur, -prob_recognise, -hosp, -dist_hl, -overdispersion), gompertz),
+         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
          hospital = community_recognised_sma * hosp) %>%
@@ -93,10 +106,8 @@ fit_combo <- parameters %>%
   select(-group_sd) %>%
   left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
   # Py weighted country-specific variables:
-  mutate(distance = 10.4, fever_tx = 0.75) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -sample, -country, -prob_symptomatic, -dur, -prob_recognise, -hosp), gompertz),
-         adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         symptomatic_sma_prevalence = adjusted_sma_prevalence * prob_symptomatic,
+  mutate(sma_prevalence = pmap_dbl(select(., -sample, -country,  -dur, -prob_recognise, -hosp, -dist_hl, -overdispersion), gompertz),
+         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
          hospital = community_recognised_sma * hosp) %>%
@@ -104,7 +115,7 @@ fit_combo <- parameters %>%
   left_join(py) %>%
   summarise(hospital = spatstat.geom::weighted.median(hospital, py))
 
-ggplot() +
+paton_plot_combined <- ggplot() +
   geom_line(data = fit_combo, aes(x = pfpr, y = hospital, group = sample), alpha = 0.2, col = "#00798c") +
   geom_line(data = fit_median_combo, aes(x = pfpr, y = hospital), col = "#edae49", size = 1) +
   geom_line(data = paton_model_prediction, aes(x = pfpr, y = hospital), col = "grey40", lty = 2) +
@@ -116,34 +127,35 @@ ggplot() +
   theme(strip.background = element_rect(fill = NA))
 
 
-bf <- mcmc$output %>%
-  slice_max(n = 1, order_by = loglikelihood + logprior) %>%
-  select(-sample, -group_sd, -chain, -iteration, -phase) %>%
-  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  # Py weighted country-specific variables:
-  mutate(distance = 10.4, fever_tx = 0.75) %>%#, country_capacity = -0.43, hosp = 0.31) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -country, -prob_symptomatic, -dur, -prob_recognise, -hosp), gompertz),
-         adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         symptomatic_sma_prevalence = adjusted_sma_prevalence * prob_symptomatic,
-         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
-         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * hosp) %>%
-  group_by(pfpr) %>%
-  left_join(py) %>%
-  summarise(hospital = spatstat.geom::weighted.median(hospital, py))
 
 
-l1 <- data.frame(sma_prevalence = gompertz(pfpr = seq(0, 0.8, 0.01), distance = 10.4, fever_tx = 0.75,
-                                           global_capacity = -4.89, country_capacity = 0.0004, 
-                                           distance_beta = 0.154, pfpr_beta = 8.588, tx_beta = -1.31,
-                                           shift = 1.535)) %>%
-  mutate(adjusted_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         symptomatic_sma_prevalence = adjusted_sma_prevalence * 0.41,
-         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / 8.78),
-         community_recognised_sma = community_symptomatic_sma_inc * 0.276,
-         hospital = community_recognised_sma * 0.15,
-         ph = hospital / (community_recognised_sma + hospital))
+ggsave("figures/fig2a.png", compare_plot, width = 5, height = 5)
+ggsave("figures/fig2b.png", paton_plot, width = 12, height = 5)
+ggsave("figures/fig2c.png", paton_plot_combined, width = 7, height = 5)
 
-tz <- filter(paton_data_summary, country == "Tanzania")
-plot(l1$hospital ~ seq(0, 0.8, 0.01))
-points(1000 * tz$sma / tz$py ~ tz$pfpr)
+
+
+
+
+# Interpretation 1: assumes community = total
+community1 <- 10
+hosp1 <- community1 * 2
+prob1 <- hosp1 / community1
+prob1
+# Interpretation 2 (odds): assumes total = community + hosp
+community2 <- 10
+hosp2 <- community2 * 2
+prob2 <- hosp2 / (community2 + hosp2)
+prob2
+p(prob1)
+
+
+parameters %>%
+  group_by(country) %>%
+  summarise(prob_hl = quantile(hosp, 0.025),
+            prob_h = median(hosp),
+            prob_hu = quantile(hosp, 0.975),
+            prob_h2l = p(prob_hl),
+            prob_h2 = p(prob_h),
+            prob_h2u = p(prob_hu)
+            )
