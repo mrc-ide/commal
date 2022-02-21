@@ -91,8 +91,8 @@ mcmc <- run_mcmc(data = data_list,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 500,
-                 samples = 500,
+                 burnin = 1000,
+                 samples = 1000,
                  rungs = 1,
                  chains = 1)
 #parallel::stopCluster(cl)
