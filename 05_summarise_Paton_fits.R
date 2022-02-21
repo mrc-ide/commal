@@ -9,6 +9,7 @@ library(patchwork)
 source("R/model_functions.R")
 source("R/prevalence_incidence.R")
 source("R/paton_fits.R")
+source("R/odds_probability.R")
 
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
   select(pfpr, sma, distance, fever_tx, py, country)
@@ -30,9 +31,11 @@ compare <- paton %>%
 compare_plot <- ggplot(compare, aes(y = hospital, x = sma, col = country)) +
   geom_point() +
   geom_abline() +
+  xlab("Observed SMA") +
+  ylab("Predicted SMA") +
   theme_bw() +
-  xlim(0, 100) + 
-  ylim(0, 100) + 
+  xlim(0, 90) + 
+  ylim(0, 90) + 
   coord_fixed()
 
 paton_summary <- paton %>%
@@ -40,19 +43,7 @@ paton_summary <- paton %>%
   summarise(py = sum(py),
             distance = median(distance))
 
-fit_median <- parameters %>%
-  select(-sample, -group_sd) %>%
-  left_join(paton_summary, by = "country") %>%
-  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -country, -py,  -dur, -prob_recognise, -hosp, -dist_hl, -distance, -overdispersion), gompertz),
-         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
-         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance)) %>%
-  group_by(pfpr, country) %>%
-  summarise(hospital = median(hospital))
-
-fit_draw <- parameters %>%
+paton_draw <- parameters %>%
   group_by(country) %>%
   slice_sample(n = 100) %>%
   ungroup() %>%
@@ -65,18 +56,24 @@ fit_draw <- parameters %>%
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
          hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance))
 
+paton_median <- paton_draw %>%
+  group_by(pfpr, country) %>%
+  summarise(hospital = median(hospital))
+
 paton_data_summary <- paton %>%
   bind_rows() %>%
-  mutate(hospital = 1000 * (sma / py))
+  mutate(hospital = 1000 * (sma / py),
+         hospitall = 1000 * (qpois(0.025, sma)/ py),
+         hospitalu = 1000 * (qpois(0.975, sma)/ py))
 
 paton_model_prediction <- data.frame(pfpr = seq(0, 0.8, 0.01)) %>%
   mutate(hospital = paton_sma(pfpr))
 
 paton_plot <- ggplot() +
-  geom_line(data = fit_draw, aes(x = pfpr, y = hospital, group = sample), alpha = 0.2, col = "#00798c") +
-  geom_line(data = fit_median, aes(x = pfpr, y = hospital, col = country), size = 1) +
-  geom_line(data = paton_model_prediction, aes(x = pfpr, y = hospital), col = "#d1495b") +
+  geom_line(data = paton_draw, aes(x = pfpr, y = hospital, group = sample), alpha = 0.2, col = "#00798c") +
+  geom_line(data = paton_median, aes(x = pfpr, y = hospital, col = country), size = 1) +
   geom_point(data = paton_data_summary, aes(x = pfpr, y = hospital, col = country)) +
+  #geom_linerange(data = paton_data_summary, aes(x = pfpr, ymin = hospitall, ymax = hospitalu, col = country)) +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab("Annual hospitalised incidence per 1000 children") +
   facet_wrap(~ country) +
@@ -84,41 +81,29 @@ paton_plot <- ggplot() +
   theme_bw() +
   theme(strip.background = element_rect(fill = NA))
 
-
-py <- paton %>%
-  group_by(country) %>%
-  summarise(py = sum(py))
-
-fit_median_combo <- parameters %>%
-  select(-sample, -group_sd) %>%
-  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  # Py weighted country-specific variables:
-  mutate(sma_prevalence = pmap_dbl(select(., -country,  -dur, -prob_recognise, -hosp, -dist_hl, -overdispersion), gompertz),
-         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
-         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * hosp) %>%
-  group_by(pfpr) %>%
-  left_join(py) %>%
-  summarise(hospital = spatstat.geom::weighted.median(hospital, py))
-
-fit_combo <- parameters %>%
+paton_combined <- parameters %>%
   select(-group_sd) %>%
   left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
+  left_join(paton_summary) %>%
   # Py weighted country-specific variables:
-  mutate(sma_prevalence = pmap_dbl(select(., -sample, -country,  -dur, -prob_recognise, -hosp, -dist_hl, -overdispersion), gompertz),
+  mutate(sma_prevalence = pmap_dbl(select(.,  formalArgs(gompertz)), gompertz),
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * hosp) %>%
-  group_by(sample, pfpr) %>%
-  left_join(py) %>%
+         hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance))
+
+paton_draws_combined <- paton_combined %>%
+  group_by(pfpr, sample) %>%
+  summarise(hospital = spatstat.geom::weighted.median(hospital, py))
+  
+paton_median_combined <- paton_combined %>%
+  group_by(pfpr) %>%
   summarise(hospital = spatstat.geom::weighted.median(hospital, py))
 
 paton_plot_combined <- ggplot() +
-  geom_line(data = fit_combo, aes(x = pfpr, y = hospital, group = sample), alpha = 0.2, col = "#00798c") +
-  geom_line(data = fit_median_combo, aes(x = pfpr, y = hospital), col = "#edae49", size = 1) +
-  geom_line(data = paton_model_prediction, aes(x = pfpr, y = hospital), col = "grey40", lty = 2) +
+  geom_line(data = paton_draws_combined, aes(x = pfpr, y = hospital, group = sample), alpha = 0.2, col = "#00798c") +
+  geom_line(data = paton_median_combined, aes(x = pfpr, y = hospital), col = "#edae49", size = 1) +
+  geom_line(data = paton_model_prediction, aes(x = pfpr, y = hospital), col = "grey20", lty = 2) +
   geom_point(data = paton_data_summary, aes(x = pfpr, y = hospital, col = country)) +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab("Annual hospitalised incidence per 1000 children") +
@@ -126,36 +111,20 @@ paton_plot_combined <- ggplot() +
   theme_bw() +
   theme(strip.background = element_rect(fill = NA))
 
+fig2_supplement <- (paton_plot | compare_plot + theme(legend.position = "none")) +
+  plot_layout(widths = c(3, 1), guides = "collect")
+ggsave("figures_tables/paton_supplement.png", fig2_supplement, width = 12, height = 4)
 
+ggsave("figures_tables/fig2.png", paton_plot_combined, width = 7, height = 5)
 
-
-ggsave("figures/fig2a.png", compare_plot, width = 5, height = 5)
-ggsave("figures/fig2b.png", paton_plot, width = 12, height = 5)
-ggsave("figures/fig2c.png", paton_plot_combined, width = 7, height = 5)
-
-
-
-
-
-# Interpretation 1: assumes community = total
-community1 <- 10
-hosp1 <- community1 * 2
-prob1 <- hosp1 / community1
-prob1
-# Interpretation 2 (odds): assumes total = community + hosp
-community2 <- 10
-hosp2 <- community2 * 2
-prob2 <- hosp2 / (community2 + hosp2)
-prob2
-p(prob1)
-
-
-parameters %>%
+prob_hosp_table <- parameters %>%
+  mutate(ph = p(hosp)) %>%
   group_by(country) %>%
-  summarise(prob_hl = quantile(hosp, 0.025),
-            prob_h = median(hosp),
-            prob_hu = quantile(hosp, 0.975),
-            prob_h2l = p(prob_hl),
-            prob_h2 = p(prob_h),
-            prob_h2u = p(prob_hu)
-            )
+  summarise(probability_hospitall = quantile(ph, 0.025),
+            probability_hospital = median(ph),
+            probability_hospitalu = quantile(ph, 0.975))
+
+write.csv(prob_hosp_table, "figures_tables/probability_hospital.csv", row.names = FALSE)
+
+
+

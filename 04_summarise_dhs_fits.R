@@ -16,33 +16,20 @@ parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   select(sample, country, global_capacity, country_capacity, shift, pfpr_beta) %>%
   mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country))
 
-# Best fit trend
-fit_median <- parameters %>%
-  select(-sample, -country, -country_capacity) %>%
-  mutate(country_capacity = 0) %>%
-  left_join(data.frame(
-    pfpr = seq(0, 0.7, 0.01)),
-    by = character()
-  ) %>%
-  mutate(
-    smapr = pmap_dbl(., gompertz)
-  ) %>%
-  group_by(pfpr) %>%
-  summarise(smapr = median(smapr))
-
-# Draws from fit
-fit_trend <- parameters %>%
+# Global fit
+fit_draws <- parameters %>%
   select(-country, -country_capacity) %>%
   mutate(country_capacity = 0) %>%
   left_join(data.frame(
     pfpr = seq(0, 0.7, 0.01)),
-    by = character()
-  ) %>%
-  mutate(
-    smapr = pmap_dbl(select(., -sample), gompertz)
-  )
+    by = character()) %>%
+  mutate(smapr = pmap_dbl(select(., -sample), gompertz))
 
-# Country
+fit_median <- fit_draws %>%
+  group_by(pfpr) %>%
+  summarise(smapr = median(smapr))
+
+# Country fits
 country_data <- dhs_sma %>%
   group_by(country) %>%
   mutate(pfprg = cut_number(pfpr, 4)) %>%
@@ -56,43 +43,32 @@ country_data <- dhs_sma %>%
     smau = binom::binom.exact(sum(symp_sma_microscopy), n())$upper
   )
 
-country_summary <- dhs_sma %>%
+country_pfpr_max_bound <- country_data %>%
+  select(country, pfpru) %>%
   group_by(country) %>%
-  summarise(
-    pfprq = pmax(0.2, max(pfpr))
-  )
+  slice_max(order_by = pfpru, n = 1, with_ties = FALSE) %>%
+  mutate(pfprq = pmax(0.2, pfpru)) %>%
+  select(-pfpru)
 
-country_fit_median <- parameters %>%
-  select(-sample) %>%
+country_draws <- parameters %>%
+  ungroup() %>%
   left_join(data.frame(
     pfpr = seq(0, 0.9, 0.01)),
     by = character()
   ) %>%
-  left_join(country_summary, by = "country") %>%
+  left_join(country_pfpr_max_bound, by = "country") %>%
   filter(pfpr < pfprq) %>%
   select(-pfprq) %>%
-  mutate(
-    smapr = pmap_dbl(select(., -country), gompertz)
-  ) %>%
+  mutate(smapr = pmap_dbl(select(., -country, -sample), gompertz))
+
+country_median <- country_draws %>%
   group_by(country, pfpr) %>%
   summarise(smapr = median(smapr))
-
-country_fit <- parameters %>%
-  left_join(data.frame(
-    pfpr = seq(0, 0.9, 0.01)),
-    by = character()
-  ) %>%
-  left_join(country_summary, by = "country") %>%
-  filter(pfpr < pfprq) %>%
-  select(-pfprq) %>%
-  mutate(
-    smapr = pmap_dbl(select(., -country, -sample), gompertz)
-  )
 
 
 ### Figure 1a model fitted trend ####
 fig1a <- ggplot() +
-  geom_line(data = fit_trend, aes(x = pfpr, y = smapr, group = sample), alpha = 0.2, col = "#00798c") +
+  geom_line(data = fit_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.2, col = "#00798c") +
   geom_line(data = fit_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab(expression(SMA~Pr[0.5-5])) + 
@@ -117,8 +93,8 @@ breaks <- function(){
 }
 
 fig1b <- ggplot() +
-  geom_line(data = country_fit, aes(x = pfpr, y = smapr, group = sample), alpha = 0.2, col = "#00798c") +
-  geom_line(data = country_fit_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
+  geom_line(data = country_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.05, col = "#00798c") +
+  geom_line(data = country_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
   geom_linerange(data = country_data, aes(y = sma, xmin = pfprl, xmax = pfpru), col = "#2e4057") +
   geom_linerange(data = country_data, aes(x = pfpr, ymin = smal, ymax = smau), col = "#2e4057") +
   geom_point(data = country_data, aes(x = pfpr, y = sma), col = "#2e4057", size = 0.75) +
@@ -135,4 +111,4 @@ fig1 <- (fig1a | fig1b) +
   plot_annotation(tag_levels = "A") +
   plot_layout(widths = c(1, 1.5))
 
-ggsave("figures/fig1.png", fig1, width = 12, height = 5)
+ggsave("figures_tables/fig1.png", fig1, width = 12, height = 5)

@@ -1,6 +1,6 @@
 r_loglike <- function(params, data, misc) {
   country_capacity <- params[grepl("ccc", names(params))]
-  country_hosp <-params[grepl("hosp_", names(params))]
+  country_hosp <- params[grepl("hosp_", names(params))]
   block <- unlist(misc["block"])
   n_countries = misc$n_countries
   
@@ -10,7 +10,8 @@ r_loglike <- function(params, data, misc) {
                                     country_capacity = country_capacity[block],
                                     pfpr_beta = params["pfpr_beta"],
                                     shift = params["shift"])
-    loglike <- sum(dbinom(data$dhs[[block]]$symp_sma_microscopy, 1, prob_dhs, log = T))
+    loglike <- sum(dbinom(data$dhs[[block]]$symp_sma_microscopy, 1, prob_dhs, log = T)) +
+      sum(dbinom(data$dhs[[block]]$chronic_amaemia, 1, params["chronic"], log = T))
   }
   
   if(block %in% (n_countries + 1):(n_countries + 3)){
@@ -20,7 +21,7 @@ r_loglike <- function(params, data, misc) {
                                       country_capacity = country_capacity[paton_block],
                                       pfpr_beta = params["pfpr_beta"],
                                       shift = params["shift"])
-      
+    prob_paton <- prob_paton * (1 - params["chronic"])  
     prob_paton <- misc$sma_prev_age_standardise(prob_paton)
     inc <- inc1(prevalence = prob_paton,
                 recovery_rate = 1 / params["dur"],

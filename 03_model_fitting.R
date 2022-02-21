@@ -22,8 +22,7 @@ paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
 
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
-  #filter(country %in% paton_countries) %>%
-  select(pfpr, symp_sma_microscopy, country) %>%
+  select(pfpr, symp_sma_microscopy, chronic_amaemia, country) %>%
   split(.$country)
 cn <- as.character(sapply(dhs_sma, function(x)x$country[1]))
 names(dhs_sma) <- cn
@@ -35,7 +34,7 @@ n_countries <- length(dhs_sma)
 
 # Data input list for MCMC
 data_list <- list(
-  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "symp_sma_microscopy")]),
+  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "symp_sma_microscopy", "chronic_amaemia")]),
   paton = lapply(paton, function(x) x[,c("pfpr", "distance", "py", "sma")])
 )
 
@@ -51,6 +50,7 @@ global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, 
                                name = "shift", min = 0, max = 50, init = 1:4, block = 1:(n_countries+3), 
                                name = "pfpr_beta", min = -30, max = 30, init = 6:9, block = 1:(n_countries+3), 
                                name = "dur", min = 0, max = Inf, init = c(2, 4, 6, 8), block = (n_countries+1):(n_countries+3),
+                               name = "chronic", min = 0, max = 1, init = c(0.0001, 0.002, 0.003, 0.004), block = 1:(n_countries+3),
                                name = "prob_recognise", min = 0, max = Inf, init = c(0.3, 0.4, 0.5, 0.6), block = (n_countries+1):(n_countries+3),
                                name = "dist_hl", min = 100000, max = 100000, init = rep(100000, 4), block = (n_countries+1):(n_countries+3),
                                name = "overdispersion", min = 0, max = 50, init = 1:4, block = (n_countries+1):(n_countries+3),
@@ -91,14 +91,14 @@ mcmc <- run_mcmc(data = data_list,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 3000,
-                 samples = 3000,
+                 burnin = 500,
+                 samples = 500,
                  rungs = 1,
                  chains = 1)
 #parallel::stopCluster(cl)
 saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 
-plot_par(mcmc)
+plot_par(mcmc, "chronic")
 
 ### Wrangle parameters #########################################################
 samples <- sample_chains(mcmc, 500)
