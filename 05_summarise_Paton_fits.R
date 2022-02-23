@@ -12,7 +12,7 @@ source("R/paton_fits.R")
 source("R/odds_probability.R")
 
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
-  select(pfpr, sma, distance, fever_tx, py, country)
+  select(pfpr, sma, distance, py, country)
 
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
@@ -20,7 +20,8 @@ parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
 
 compare <- paton %>%
   left_join(parameters, by = "country") %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -country, -py,  -dur, -prob_recognise, -hosp, -dist_hl, -distance, -fever_tx, -py, -sma, -sample, -group_sd, -overdispersion ), gompertz),
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         malaria_attributable_sma = sma_prevalence * (1 - chronic),
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur, py),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
@@ -50,7 +51,8 @@ paton_draw <- parameters %>%
   select(-group_sd) %>%
   left_join(paton_summary, by = "country") %>%
   left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -dur, -prob_recognise, -hosp, -sample, -country, -py, -dist_hl, -distance, -overdispersion), gompertz),
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         malaria_attributable_sma = sma_prevalence * (1 - chronic),
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
@@ -86,7 +88,8 @@ paton_combined <- parameters %>%
   left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
   left_join(paton_summary) %>%
   # Py weighted country-specific variables:
-  mutate(sma_prevalence = pmap_dbl(select(.,  formalArgs(gompertz)), gompertz),
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         malaria_attributable_sma = sma_prevalence * (1 - chronic),
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
@@ -116,6 +119,15 @@ fig2_supplement <- (paton_plot | compare_plot + theme(legend.position = "none"))
 ggsave("figures_tables/paton_supplement.png", fig2_supplement, width = 12, height = 4)
 
 ggsave("figures_tables/fig2.png", paton_plot_combined, width = 7, height = 5)
+
+
+prob_hosp_pd <- parameters %>%
+  mutate(ph = p(hosp))
+
+ggplot(prob_hosp_pd, aes(x = ph, fill = country)) +
+  geom_histogram(binwidth = 0.05) + 
+  facet_wrap(~ country) +
+  theme_bw()
 
 prob_hosp_table <- parameters %>%
   mutate(ph = p(hosp)) %>%

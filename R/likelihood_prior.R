@@ -27,7 +27,7 @@ r_loglike <- function(params, data, misc) {
                 recovery_rate = 1 / params["dur"],
                 py = data$paton[[paton_block]]$py)
     recognised_inc <- inc * params["prob_recognise"]
-    hosp_inc <- recognised_inc * (country_hosp[paton_block] * exp(-(1 / params["dist_hl"]) * data$paton[[paton_block]]$distance))
+    hosp_inc <- recognised_inc * country_hosp[paton_block] * misc$distance_function(params, data$paton[[paton_block]]$distance)
     loglike <- sum(dnbinom(data$paton[[paton_block]]$sma, mu = hosp_inc, size = params["overdispersion"], log = T))
   }
   
@@ -41,10 +41,23 @@ r_loglike <- function(params, data, misc) {
 
 r_logprior <- function(params, misc){
   ret <- 
+    sum(dnorm(params[c("global_capacity", "shift", "pfpr_beta")], 0, 10, log = TRUE)) +
+    # Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
+    # Var set to extend wider than observed distribution.
+    sum(dgamma2(params["dur"], mean = 4.61, var = 30, log = TRUE)) +
+    sum(dunif(params["chronic"], 0, 1, log = TRUE)) +
+    # Prior from Shellenberg (2003) Figure 2 (see paragraph text)
+    sum(dbeta(params["prob_recognise"], 14, 43 - 14, log = TRUE)) +
+    sum(dlnorm(params["overdispersion"], 0, 5, log = TRUE)) +
     sum(dlnorm(params["group_sd"], 0, 5, log = TRUE)) +
     sum(dnorm(params[grepl("ccc", names(params))], 0, 10, log = TRUE)) +
-    # Prior from Shellenberg (2003) Figure 2
-    sum(dbeta(params["prob_recognise"], 14, 43 - 14, log = TRUE)) +
-    sum(dgamma2(params["dur"], 5, 10, log = TRUE))
+    misc$distance_prior(params)
   return(ret)
+}
+
+distance_prior_null <- function(params){
+  0
+}
+distance_prior_exponential <- function(params){
+  sum(dlnorm(params["dist_hl"], 0, 2, log = TRUE))
 }

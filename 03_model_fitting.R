@@ -45,24 +45,27 @@ misc <- list(
   n_countries = n_countries
 )
 
+################################################################################
+### Model 1 with null distance access relationship #############################
+################################################################################
+
 # Define parameters
 global_params <- define_params(name = "global_capacity", min = -Inf, max = Inf, init = c(-12, -10, -8, -6), block = 1:(n_countries+3), 
-                               name = "shift", min = 0, max = 50, init = 1:4, block = 1:(n_countries+3), 
-                               name = "pfpr_beta", min = -30, max = 30, init = 6:9, block = 1:(n_countries+3), 
+                               name = "shift", min = 0, max = Inf, init = 1:4, block = 1:(n_countries+3), 
+                               name = "pfpr_beta", min = -Inf, max = Inf, init = 6:9, block = 1:(n_countries+3), 
                                name = "dur", min = 0, max = Inf, init = c(2, 4, 6, 8), block = (n_countries+1):(n_countries+3),
                                name = "chronic", min = 0, max = 1, init = c(0.0001, 0.002, 0.003, 0.004), block = 1:(n_countries+3),
                                name = "prob_recognise", min = 0, max = Inf, init = c(0.3, 0.4, 0.5, 0.6), block = (n_countries+1):(n_countries+3),
-                               name = "dist_hl", min = 100000, max = 100000, init = rep(100000, 4), block = (n_countries+1):(n_countries+3),
-                               name = "overdispersion", min = 0, max = 50, init = 1:4, block = (n_countries+1):(n_countries+3),
+                               name = "overdispersion", min = 0, max = Inf, init = 1:4, block = (n_countries+1):(n_countries+3),
                                name = "group_sd", min = 0, max = Inf, init = c(0.5, 0.75, 1, 1.25), block = (n_countries+4))
 country_params <- data.frame(
   name = paste0("ccc_", country_names),
-  min = -10,
-  max = 10
+  min = -Inf,
+  max = Inf
 )
 country_params$init <- lapply(1:n_countries, function(x){
   c(-0.4, -0.2, 0, 0.2)
-  })
+})
 country_params$block <- lapply(1:n_countries, function(x){
   c(x, (n_countries+4))
 })
@@ -73,7 +76,7 @@ country_params$block[[3]] <- c(3, (n_countries+3), (n_countries+4))
 hosp_params <- data.frame(
   name = paste0("hosp_", paton_countries),
   min = 0,
-  max = 100
+  max = Inf
 )
 hosp_params$init <- lapply(1:3, function(x){
   c(0.2, 0.4, 0.6, 0.8)
@@ -81,27 +84,72 @@ hosp_params$init <- lapply(1:3, function(x){
 hosp_params$block <- as.list((n_countries+1):(n_countries+3))
 df_params <- bind_rows(global_params, hosp_params, country_params)
 
-df_params$init <- lapply(df_params$init, function(x)x[1])
 
 # Run MCMC
-#cl <- parallel::makeCluster(4)
-#parallel::clusterExport(cl, c("rlogit", "inc1", "dgamma2"))
-mcmc <- run_mcmc(data = data_list,
-                 df_params = df_params,
-                 loglike = r_loglike,
-                 logprior = r_logprior,
-                 misc = misc,
-                 burnin = 1000,
-                 samples = 1000,
-                 rungs = 1,
-                 chains = 1)
-#parallel::stopCluster(cl)
-saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
+cl <- parallel::makeCluster(4)
+parallel::clusterExport(cl, c("rlogit", "inc1", "dgamma2"))
+mcmc_null_distance <- run_mcmc(data = data_list,
+                               df_params = df_params,
+                               loglike = r_loglike,
+                               logprior = r_logprior,
+                               misc = c(misc,
+                                        distance_function = distance_null,
+                                        distance_prior = distance_prior_null),
+                               burnin = 50000,
+                               samples = 50000,
+                               rungs = 1,
+                               chains = 4,
+                               cluster = cl)
+parallel::stopCluster(cl)
+#saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
+#plot_par(mcmc)
 
-plot_par(mcmc, "chronic")
+################################################################################
+################################################################################
+################################################################################
 
-### Wrangle parameters #########################################################
-samples <- sample_chains(mcmc, 500)
+################################################################################
+### Model 2 with exponential distance access relationship ######################
+################################################################################
+
+# Define parameters
+df_params2 <- df_params %>%
+  bind_rows(define_params(name = "dist_hl", min = 0.01, max = 200, init = c(3, 5, 7, 9), block = 1:(n_countries+3)))
+
+# Run MCMC
+cl <- parallel::makeCluster(4)
+parallel::clusterExport(cl, c("rlogit", "inc1", "dgamma2"))
+mcmc_exp_distance <- run_mcmc(data = data_list,
+                              df_params = df_params2,
+                              loglike = r_loglike,
+                              logprior = r_logprior,
+                              misc = c(misc,
+                                       distance_function = distance_exponential,
+                                       distance_prior = distance_prior_exponential),
+                              burnin = 50000,
+                              samples = 50000,
+                              rungs = 1,
+                              chains = 4)
+parallel::stopCluster(cl)
+#saveRDS(mcmc2, "ignore/prob_hosp/mcmc_fits/mcmc2.rds")
+#plot_par(mcmc2)
+################################################################################
+################################################################################
+################################################################################
+
+
+### Compare DIC ################################################################
+dic_null_distance <- dic(filter(mcmc_null_distance$output, phase == "sampling")$loglikelihood)
+dic_exp_distance <- dic(filter(mcmc_exp_distance$output, phase == "sampling")$loglikelihood)
+dic_null_distance
+dic_exp_distance
+################################################################################
+
+################################################################################
+### Wrangle parameters from best fit model #####################################
+################################################################################
+chosen_model <- mcmc_null_distance
+samples <- sample_chains(chosen_model, 1000)
 
 global_parameters <- samples %>%
   select(-contains("ccc_"), -contains("hosp"))
@@ -121,5 +169,5 @@ parameters <- global_parameters %>%
 
 saveRDS(parameters, "ignore/prob_hosp/mcmc_fits/parameters.rds")
 ################################################################################
-
-
+################################################################################
+################################################################################

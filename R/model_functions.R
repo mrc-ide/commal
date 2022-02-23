@@ -5,23 +5,13 @@ gompertz <- function(pfpr, global_capacity, country_capacity, pfpr_beta, shift){
   return(est)
 }
 
-#' Mean duration of SMA
-#' 
-#' This is a fast version of taking the weighted.mean across durations and 
-#' outcome probabilities.
-#'
-#' @param dur_recover Duration if outcome is natural recovery
-#' @param dur_tx Duration if outcome is treatment
-#' @param dur_die Duration if outcome is death
-#' @param cfr Case fatality rate
-#'
-#' @return Average duration
-#' @export
-mean_duration <- function(dur_die, dur_recover, cfr){
-  weights <- cfr + (1 - cfr)
-  values <- cfr * dur_die + (1 - cfr) * dur_recover
-  mean_duration <- values / weights
-  return(mean_duration)
+# Exponential decay in odds of hospitalisation wrt distance
+distance_exponential <- function(params, distance){
+  exp(-(1 / params["dist_hl"]) * distance)
+}
+# No change in odds of hospitalisation wrt distance
+distance_null <- function(params, distance){
+  rep(1, length(distance))
 }
 
 # Estimate the probability from log odds
@@ -55,4 +45,9 @@ sma_prev_age_standardise <- function(prevalence,
   prevalence_adjustment <- cases_multiplier / age_band_multiplier
   prevalence <- pmin(1, prevalence * prevalence_adjustment)
   return(prevalence)
+}
+
+dic <- function(loglikelihood){
+  d <- -2 * loglikelihood
+  0.5 * var(d) + mean(d)
 }

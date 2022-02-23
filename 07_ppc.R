@@ -15,7 +15,7 @@ dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
   mutate(pfprg = cut(pfpr, c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 1), include.lowest = T, labels = c("0-1", "0.1-0.2", "0.2-0.3", "0.3-0.4", "0.4-0.5", "0.5+")))
 
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
-  select(pfpr, sma, py, country)
+  select(pfpr, sma, py, distance, country, site)
 
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
@@ -23,7 +23,7 @@ parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
 
 # Prediction - DHS
 predict <- parameters %>%
-  slice_sample(n = 100) %>%
+  slice_sample(n = 500) %>%
   select(sample, country, global_capacity, country_capacity, shift, pfpr_beta) %>%
   left_join(dhs_sma, by = "country") %>%
   mutate(predict = pmap_dbl(select(., -country, -symp_sma_microscopy, -sample, - pfprg), gompertz)) %>%
@@ -67,31 +67,34 @@ ppc3 <- ggplot(data = pd3, aes(x = predict)) +
 
 # Prediction - Paton
 predict2 <- parameters %>%
-  slice_sample(n = 500)%>%
+  group_by(country) %>%
+  slice_sample(n = 500) %>%
+  ungroup() %>%
   filter(country %in% unique(paton$country)) %>%
   left_join(paton, by = "country") %>%
-  mutate(sma_prevalence = pmap_dbl(select(., -country, -py, -dur, -prob_recognise, -hosp, -group_sd, -sma, -sample, -dist_hl, -overdispersion), gompertz),
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         malaria_attributable_sma = sma_prevalence * (1 - chronic),
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         predict = community_recognised_sma * hosp) %>%
+         predict = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance)) %>%
   filter(!is.na(predict))
 
 pd6 <- predict2 %>%
   mutate(ml = mean(1000 * sma / py))
 
 ppc6 <- ggplot(data = pd6, aes(x = predict)) +
-  geom_histogram(fill = "darkblue", bins = 40) +
+  geom_histogram(fill = "darkblue", binwidth = 0.1) +
   geom_vline(aes(xintercept = ml), col = "red") +
   xlab("Hospitalised incidence per 1000") +
   theme_bw()
 
 pd7 <- predict2 %>%
-  group_by(country) %>%
+  group_by(country, site) %>%
   mutate(ml = mean(1000 * sma / py))
 
 ppc7 <- ggplot(data = pd7, aes(x = predict)) +
-  geom_histogram(fill = "darkblue", bins = 20) +
+  geom_histogram(fill = "darkblue", binwidth = 0.1) +
   geom_vline(aes(xintercept = ml), col = "red") +
   xlab("Hospitalised incidence per 1000") +
   theme_bw() +
