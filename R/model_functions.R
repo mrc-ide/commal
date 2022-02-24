@@ -5,15 +5,6 @@ gompertz <- function(pfpr, global_capacity, country_capacity, pfpr_beta, shift){
   return(est)
 }
 
-# Exponential decay in odds of hospitalisation wrt distance
-distance_exponential <- function(params, distance){
-  exp(-(1 / params["dist_hl"]) * distance)
-}
-# No change in odds of hospitalisation wrt distance
-distance_null <- function(params, distance){
-  rep(1, length(distance))
-}
-
 # Estimate the probability from log odds
 rlogit <- function(log_odds){
   1 / (1 + exp(-log_odds))

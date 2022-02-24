@@ -25,7 +25,7 @@ compare <- paton %>%
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur, py),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance)) %>%
+         hospital = community_recognised_sma * exp(hosp + distance_beta * distance)) %>%
   group_by(country, pfpr, distance, sma) %>%
   summarise(hospital = median(hospital))
 
@@ -56,7 +56,7 @@ paton_draw <- parameters %>%
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance))
+         hospital = community_recognised_sma * exp(hosp + distance_beta * distance))
 
 paton_median <- paton_draw %>%
   group_by(pfpr, country) %>%
@@ -93,7 +93,7 @@ paton_combined <- parameters %>%
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance))
+         hospital = community_recognised_sma * exp(hosp + distance_beta * distance))
 
 paton_draws_combined <- paton_combined %>%
   group_by(pfpr, sample) %>%
@@ -122,7 +122,7 @@ ggsave("figures_tables/fig2.png", paton_plot_combined, width = 7, height = 5)
 
 
 prob_hosp_pd <- parameters %>%
-  mutate(ph = p(hosp))
+  mutate(ph = p(exp(hosp)))
 
 ggplot(prob_hosp_pd, aes(x = ph, fill = country)) +
   geom_histogram(binwidth = 0.05) + 
@@ -130,7 +130,7 @@ ggplot(prob_hosp_pd, aes(x = ph, fill = country)) +
   theme_bw()
 
 prob_hosp_table <- parameters %>%
-  mutate(ph = p(hosp)) %>%
+  mutate(ph = p(exp(hosp))) %>%
   group_by(country) %>%
   summarise(probability_hospitall = quantile(ph, 0.025),
             probability_hospital = median(ph),
@@ -139,4 +139,26 @@ prob_hosp_table <- parameters %>%
 write.csv(prob_hosp_table, "figures_tables/probability_hospital.csv", row.names = FALSE)
 
 
+### Distance trend:
 
+distance_trend_draw <- parameters %>%
+  filter(country %in% c("Tanzania", "Uganda", "Kenya")) %>%
+  #group_by(country) %>%
+  slice_sample(n = 300) %>%
+  mutate(sample = 1:n()) %>%
+  #ungroup() %>%
+  select(sample, country, hosp, distance_beta) %>%
+  left_join(data.frame(distance = seq(0, 50, 0.1)), by = character()) %>%
+  mutate(p_hospital = p(exp(hosp + distance_beta * distance)))
+distance_trend_median <- distance_trend_draw %>%
+  group_by(distance) %>%
+  summarise(p_hospital = median(p_hospital))  
+  
+distance_plot <- ggplot() +
+  geom_line(data = distance_trend_draw, aes(x = distance, y = p_hospital, group = sample), alpha = 0.2, col = "#00798c") +
+  geom_line(data = distance_trend_median, aes(x = distance, y = p_hospital), size = 1) +
+  xlab("Distance") +
+  ylab("P") +
+  #facet_wrap(~ country, scales = "free") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = NA))
