@@ -113,7 +113,10 @@ saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 ################################################################################
 ### Wrangle parameters #########################################################
 ################################################################################
-samples <- sample_chains(mcmc, 40000)
+samples <- mcmc$output %>%
+  filter(phase == "sampling") %>%
+  select(-c(chain, phase, iteration, logprior, loglikelihood)) %>%
+  mutate(sample = 1:n())
 
 global_parameters <- samples %>%
   select(-contains("ccc_"), -contains("hosp"))
