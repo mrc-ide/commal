@@ -10,24 +10,29 @@ r_loglike <- function(params, data, misc) {
                                     country_capacity = country_capacity[block],
                                     pfpr_beta = params["pfpr_beta"],
                                     shift = params["shift"])
+    
     loglike <- sum(dbinom(data$dhs[[block]]$symp_sma_microscopy, 1, prob_dhs, log = T)) +
       sum(dbinom(data$dhs[[block]]$chronic_amaemia, 1, params["chronic"], log = T))
   }
   
   if(block %in% (n_countries + 1):(n_countries + 3)){
     paton_block <- block - n_countries
+    
     prob_paton <- misc$model_function(pfpr = data$paton[[paton_block]]$pfpr,
                                       global_capacity = params["global_capacity"],
                                       country_capacity = country_capacity[paton_block],
                                       pfpr_beta = params["pfpr_beta"],
                                       shift = params["shift"])
-    prob_paton <- prob_paton * (1 - params["chronic"])  
-    prob_paton <- misc$sma_prev_age_standardise(prob_paton)
-    inc <- inc1(prevalence = prob_paton,
-                recovery_rate = 1 / params["dur"],
-                py = data$paton[[paton_block]]$py)
-    recognised_inc <- inc * params["prob_recognise"]
-    hosp_inc <- recognised_inc * exp(country_hosp[paton_block] + params["distance_beta"] * data$paton[[paton_block]]$distance)
+    
+    hosp_inc <- cascade(symptomatic_sma_prevalence = prob_paton,
+                        chronic = params["chronic"],
+                        dur = params["dur"],
+                        py = data$paton[[paton_block]]$py, 
+                        prob_recognise = params["prob_recognise"],
+                        hosp = country_hosp[paton_block],
+                        distance_beta = params["distance_beta"],
+                        distance = data$paton[[paton_block]]$distance)
+    
     loglike <- sum(dnbinom(data$paton[[paton_block]]$sma, mu = hosp_inc, size = params["overdispersion"], log = T))
   }
   
@@ -43,7 +48,6 @@ r_logprior <- function(params, misc){
   ret <- 
     sum(dnorm(params[c("global_capacity", "shift", "pfpr_beta")], 0, 10, log = TRUE)) +
     # Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
-    # Fitted gamma
     sum(dgamma(params["dur"], shape = 1.54, rate = 0.33, log = TRUE)) +
     sum(dunif(params["chronic"], 0, 1, log = TRUE)) +
     # Prior from Shellenberg (2003) Figure 2 (see paragraph text)

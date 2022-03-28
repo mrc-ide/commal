@@ -14,6 +14,7 @@ source("R/odds_probability.R")
 source("R/paton_fits.R")
 source("R/model_functions.R")
 source("R/likelihood_prior.R")
+source("R/cascade.R")
 
 # Load data
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
@@ -42,7 +43,6 @@ data_list <- list(
 # Helper functions for MCMC
 misc <- list(
   model_function = gompertz,
-  sma_prev_age_standardise = sma_prev_age_standardise,
   n_countries = n_countries
 )
 
@@ -88,17 +88,20 @@ df_params <- bind_rows(global_params, hosp_params, country_params)
 
 # Run MCMC
 cl <- parallel::makeCluster(4)
-parallel::clusterExport(cl, c("rlogit", "inc1", "dgamma2"))
+parallel::clusterExport(cl, c("rlogit", "prev_to_inc", "dgamma2",
+                              "cascade", "%>%", "malaria_attributable",
+                              "sma_prev_age_standardise", "recognised", 
+                              "hospitalised"))
 mcmc <- run_mcmc(data = data_list,
-                               df_params = df_params,
-                               loglike = r_loglike,
-                               logprior = r_logprior,
-                               misc = misc,
-                               burnin = 1000,
-                               samples = 1000,
-                               rungs = 1,
-                               chains = 4,
-                               cluster = cl)
+                 df_params = df_params,
+                 loglike = r_loglike,
+                 logprior = r_logprior,
+                 misc = misc,
+                 burnin = 400,
+                 samples = 100,
+                 rungs = 1,
+                 chains = 4,
+                 cluster = cl)
 parallel::stopCluster(cl)
 saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 #plot_par(mcmc)
@@ -110,7 +113,7 @@ saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 ################################################################################
 ### Wrangle parameters #########################################################
 ################################################################################
-samples <- sample_chains(mcmc, 3000)
+samples <- sample_chains(mcmc, 40000)
 
 global_parameters <- samples %>%
   select(-contains("ccc_"), -contains("hosp"))

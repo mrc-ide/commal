@@ -11,127 +11,124 @@ source("R/prevalence_incidence.R")
 source("R/paton_fits.R")
 source("R/odds_probability.R")
 
+
+################################################################################
+# Model fit ####################################################################
+################################################################################
+
+# Number of uncertainty draws to plot
+ndraw <- 200
+
+# Paton data
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
   rename(sma = sma_n_modelled) %>%
-  select(pfpr, sma, distance, py, country)
+  select(pfpr, sma, distance, py, country, sma_modelled, sma_diamond)
+# Paton model fit
+paton_model_prediction <- data.frame(pfpr = seq(0, 0.8, 0.01)) %>%
+  mutate(hospital = paton_sma(pfpr)) %>%
+  mutate(model = "Paton")
 
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   filter(country %in% c("Uganda", "Tanzania", "Kenya"))
 
-compare <- paton %>%
+
+
+# Summarise attributed of countries
+country_attributes <- paton %>%
+  group_by(country) %>%
+  summarise(
+    distance = mean(distance),
+    weight = sum(py)
+  )
+
+# Median
+median_country_fit <- paton %>%
   left_join(parameters, by = "country") %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         malaria_attributable_sma = sma_prevalence * (1 - chronic),
+  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, prob_recognise, hosp, distance_beta) %>%
+  group_by(country) %>%
+  summarise_all(median) %>%
+  left_join(country_attributes, by = "country") %>%
+  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
+  mutate(mp = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         malaria_attributable_sma = mp * (1 - chronic),
          symptomatic_sma_prevalence = sma_prev_age_standardise(malaria_attributable_sma),
-         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur, py),
-         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * exp(hosp + distance_beta * distance)) %>%
-  group_by(country, pfpr, distance, sma) %>%
-  summarise(hospital = median(hospital))
-
-compare_plot <- ggplot(compare, aes(y = hospital, x = sma, col = country)) +
-  geom_point() +
-  geom_abline() +
-  xlab("Observed SMA") +
-  ylab("Predicted SMA") +
-  theme_bw() +
-  xlim(0, 90) + 
-  ylim(0, 90) + 
-  coord_fixed()
-
-paton_summary <- paton %>%
-  group_by(country) %>%
-  summarise(py = sum(py),
-            distance = median(distance))
-
-paton_draw <- parameters %>%
-  group_by(country) %>%
-  slice_sample(n = 200) %>%
-  ungroup() %>%
-  select(-group_sd) %>%
-  left_join(paton_summary, by = "country") %>%
-  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         malaria_attributable_sma = sma_prevalence * (1 - chronic),
-         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
          hospital = community_recognised_sma * exp(hosp + distance_beta * distance))
 
-paton_median <- paton_draw %>%
-  group_by(pfpr, country) %>%
-  summarise(hospital = median(hospital))
-
-paton_data_summary <- paton %>%
-  bind_rows() %>%
-  mutate(hospital = 1000 * (sma / py),
-         hospitall = 1000 * (qpois(0.025, sma)/ py),
-         hospitalu = 1000 * (qpois(0.975, sma)/ py))
-
-paton_model_prediction <- data.frame(pfpr = seq(0, 0.8, 0.01)) %>%
-  mutate(hospital = paton_sma(pfpr))
-
-paton_plot <- ggplot() +
-  geom_line(data = paton_draw, aes(x = pfpr, y = hospital, group = sample), alpha = 0.2, col = "#00798c") +
-  geom_line(data = paton_median, aes(x = pfpr, y = hospital, col = country), size = 1) +
-  geom_point(data = paton_data_summary, aes(x = pfpr, y = hospital, col = country)) +
-  #geom_linerange(data = paton_data_summary, aes(x = pfpr, ymin = hospitall, ymax = hospitalu, col = country)) +
-  xlab(expression(~italic(Pf)~Pr[2-10])) +
-  ylab("Annual hospitalised incidence per 1000 children") +
-  facet_wrap(~ country) +
-  coord_cartesian(ylim = c(0, 5)) +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = NA))
-
-paton_combined <- parameters %>%
-  slice_sample(n = 300) %>%
-  select(-group_sd) %>%
-  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  left_join(paton_summary) %>%
-  # Py weighted country-specific variables:
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         malaria_attributable_sma = sma_prevalence * (1 - chronic),
-         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
-         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
-         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         hospital = community_recognised_sma * exp(hosp + distance_beta * distance))
-
-paton_draws_combined <- paton_combined %>%
-  group_by(pfpr, sample) %>%
-  summarise(hospital = spatstat.geom::weighted.median(hospital, py))
-  
-paton_median_combined <- paton_combined %>%
+median_global_fit <- median_country_fit %>%
   group_by(pfpr) %>%
-  summarise(hospital = spatstat.geom::weighted.median(hospital, py))
+  summarise(hospital = weighted.mean(hospital, weight)) %>%
+  mutate(model = "Winskill")
 
-paton_plot_combined <- ggplot() +
-  geom_line(data = paton_draws_combined, aes(x = pfpr, y = hospital, group = sample), alpha = 0.2, col = "#00798c") +
-  geom_line(data = paton_median_combined, aes(x = pfpr, y = hospital), col = "#edae49", size = 1) +
-  geom_line(data = paton_model_prediction, aes(x = pfpr, y = hospital), col = "grey20", lty = 2) +
-  geom_point(data = paton_data_summary, aes(x = pfpr, y = hospital, col = country)) +
+# Uncertainty draws
+draw_country_fit <- paton %>%
+  left_join(parameters, by = "country") %>%
+  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, prob_recognise, hosp, distance_beta) %>%
+  group_by(country) %>%
+  slice_sample(n = ndraw) %>%
+  mutate(sample = 1:ndraw) %>%
+  ungroup() %>%
+  left_join(country_attributes, by = "country") %>%
+  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
+  mutate(mp = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         malaria_attributable_sma = mp * (1 - chronic),
+         symptomatic_sma_prevalence = sma_prev_age_standardise(malaria_attributable_sma),
+         community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
+         community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
+         hospital = community_recognised_sma * exp(hosp + distance_beta * distance))
+
+draw_global_fit <- draw_country_fit %>%
+  group_by(pfpr, sample) %>%
+  summarise(hospital = weighted.mean(hospital, weight)) %>%
+  mutate(model = "Winskill")
+
+
+# Plotting 
+global_plot <- ggplot() +
+  geom_point(data = paton, aes(x = pfpr, y = sma_modelled)) +
+  geom_line(data = draw_global_fit, aes(x = pfpr, y = hospital, group = sample), alpha = 0.25, col = "#00798c") +
+  geom_line(data = median_global_fit, aes(x = pfpr, y = hospital, col = model), col = "#edae49", size = 1) +
+  geom_line(data = paton_model_prediction, aes(x = pfpr, y = hospital, col = model), col = "grey20", lty = 2) +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab("Annual hospitalised incidence per 1000 children") +
-  coord_cartesian(ylim = c(0, 3.2)) +
   theme_bw() +
+  ylim(0, 3.5)
+
+country_plot <- ggplot() +
+  geom_point(data = paton, aes(x = pfpr, y = sma_modelled)) +
+  geom_line(data = draw_country_fit, aes(x = pfpr, y = hospital, group = sample), alpha = 0.25, col = "#00798c") +
+  geom_line(data = median_country_fit, aes(x = pfpr, y = hospital, col = model), col = "#edae49", size = 1) +
+  xlab(expression(~italic(Pf)~Pr[2-10])) +
+  ylab("Annual hospitalised incidence per 1000 children") +
+  theme_bw() +
+  facet_wrap(~ country) +
   theme(strip.background = element_rect(fill = NA))
+################################################################################
+################################################################################
+################################################################################
 
-fig2_supplement <- (paton_plot | compare_plot + theme(legend.position = "none")) +
-  plot_layout(widths = c(3, 1), guides = "collect")
-ggsave("figures_tables/paton_supplement.png", fig2_supplement, width = 12, height = 4)
-
-ggsave("figures_tables/fig2.png", paton_plot_combined, width = 7, height = 5)
+################################################################################
+# Prob hospital ################################################################
+################################################################################
 
 prob_hosp_pd <- parameters %>%
   mutate(ph = p(exp(hosp)))
 
-ggplot(prob_hosp_pd, aes(x = ph)) +
-  geom_histogram(binwidth = 0.05) + 
+# Plotting
+prob_hosp_plot <- ggplot(prob_hosp_pd, aes(x = ph)) +
+  geom_histogram(binwidth = 0.05, col = "white", fill = "black") + 
   facet_wrap(~ country) +
   xlab("Probability hospital | symptoms recognised") +
+  xlim(0, 1) +
   theme_bw() +
-  theme(strip.background = element_rect(fill = NA))
+  theme(strip.background = element_rect(fill = NA),
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank())
 
+# Table
 prob_hosp_table <- parameters %>%
   mutate(ph = p(exp(hosp))) %>%
   group_by(country) %>%
@@ -141,27 +138,45 @@ prob_hosp_table <- parameters %>%
 
 write.csv(prob_hosp_table, "figures_tables/probability_hospital.csv", row.names = FALSE)
 
+################################################################################
+################################################################################
+################################################################################
 
-### Distance trend:
+################################################################################
+# Distance #####################################################################
+################################################################################
 
-distance_trend_draw <- parameters %>%
-  filter(country %in% c("Tanzania", "Uganda", "Kenya")) %>%
-  #group_by(country) %>%
-  slice_sample(n = 300) %>%
-  mutate(sample = 1:n()) %>%
-  #ungroup() %>%
-  select(sample, country, hosp, distance_beta) %>%
-  left_join(data.frame(distance = seq(0, 50, 0.1)), by = character()) %>%
-  mutate(p_hospital = p(exp(hosp + distance_beta * distance)))
-distance_trend_median <- distance_trend_draw %>%
+draw_distance_global_fit <- paton %>%
+  left_join(parameters, by = "country") %>%
+  select(country, hosp, distance_beta) %>%
+  group_by(country) %>%
+  slice_sample(n = ndraw) %>%
+  mutate(sample = 1:ndraw) %>%
+  ungroup() %>% 
+  left_join(select(country_attributes, country, weight), by = "country") %>%
+  left_join(data.frame(distance = seq(0, 100, 0.1)), by = character()) %>%
+  mutate(p_hospital = p(exp(hosp + distance_beta * distance))) %>%
+  group_by(distance, sample) %>%
+  summarise(p_hospital = weighted.mean(p_hospital, weight))
+
+median_distance_global_fit <- paton %>%
+  left_join(parameters, by = "country") %>%
+  select(country, hosp, distance_beta) %>%
+  group_by(country) %>%
+  summarise_all(median) %>% 
+  left_join(select(country_attributes, country, weight), by = "country") %>%
+  left_join(data.frame(distance = seq(0, 100, 0.1)), by = character()) %>%
+  mutate(p_hospital = p(exp(hosp + distance_beta * distance))) %>%
   group_by(distance) %>%
-  summarise(p_hospital = median(p_hospital))  
-  
+  summarise(p_hospital = weighted.mean(p_hospital, weight))
+
 distance_plot <- ggplot() +
-  geom_line(data = distance_trend_draw, aes(x = distance, y = p_hospital, group = sample), alpha = 0.2, col = "#00798c") +
-  geom_line(data = distance_trend_median, aes(x = distance, y = p_hospital), size = 1) +
+  geom_line(data = draw_distance_global_fit, aes(x = distance, y = p_hospital, group = sample), alpha = 0.25, col = "#00798c") +
+  geom_line(data = median_distance_global_fit, aes(x = distance, y = p_hospital), col = "#edae49", size = 1) +
+  ylab("Probability hospital | symptoms recognised") +
   xlab("Distance") +
-  ylab("P") +
-  #facet_wrap(~ country, scales = "free") +
-  theme_bw() +
-  theme(strip.background = element_rect(fill = NA))
+  theme_bw()
+
+################################################################################
+################################################################################
+################################################################################

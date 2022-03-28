@@ -38,7 +38,7 @@ prev <- function(incidence, recovery_rate){
 #' @param py Person years
 #'
 #' @return Incidence rate.
-inc1 <- function(prevalence, recovery_rate, py = 1000){
+prev_to_inc <- function(prevalence, recovery_rate, py = 1000){
   py * 365 * (prevalence * recovery_rate / (1 - prevalence))
 }
 
