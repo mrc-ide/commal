@@ -16,7 +16,7 @@ parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   mutate(
     a = n * prev,
     b = a * prob_recognise,
-    c = b * hosp,
+    c = b * exp(hosp),
     a = a + c,
     b = b + c
   )

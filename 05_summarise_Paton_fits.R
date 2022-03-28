@@ -12,6 +12,7 @@ source("R/paton_fits.R")
 source("R/odds_probability.R")
 
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
+  rename(sma = sma_n_modelled) %>%
   select(pfpr, sma, distance, py, country)
 
 # Load fit
@@ -22,7 +23,7 @@ compare <- paton %>%
   left_join(parameters, by = "country") %>%
   mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
          malaria_attributable_sma = sma_prevalence * (1 - chronic),
-         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
+         symptomatic_sma_prevalence = sma_prev_age_standardise(malaria_attributable_sma),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur, py),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
          hospital = community_recognised_sma * exp(hosp + distance_beta * distance)) %>%
@@ -46,7 +47,7 @@ paton_summary <- paton %>%
 
 paton_draw <- parameters %>%
   group_by(country) %>%
-  slice_sample(n = 100) %>%
+  slice_sample(n = 200) %>%
   ungroup() %>%
   select(-group_sd) %>%
   left_join(paton_summary, by = "country") %>%
@@ -84,6 +85,7 @@ paton_plot <- ggplot() +
   theme(strip.background = element_rect(fill = NA))
 
 paton_combined <- parameters %>%
+  slice_sample(n = 300) %>%
   select(-group_sd) %>%
   left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
   left_join(paton_summary) %>%
@@ -120,14 +122,15 @@ ggsave("figures_tables/paton_supplement.png", fig2_supplement, width = 12, heigh
 
 ggsave("figures_tables/fig2.png", paton_plot_combined, width = 7, height = 5)
 
-
 prob_hosp_pd <- parameters %>%
   mutate(ph = p(exp(hosp)))
 
-ggplot(prob_hosp_pd, aes(x = ph, fill = country)) +
+ggplot(prob_hosp_pd, aes(x = ph)) +
   geom_histogram(binwidth = 0.05) + 
   facet_wrap(~ country) +
-  theme_bw()
+  xlab("Probability hospital | symptoms recognised") +
+  theme_bw() +
+  theme(strip.background = element_rect(fill = NA))
 
 prob_hosp_table <- parameters %>%
   mutate(ph = p(exp(hosp))) %>%

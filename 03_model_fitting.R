@@ -17,6 +17,7 @@ source("R/likelihood_prior.R")
 
 # Load data
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
+  rename(sma = sma_n_diamond) %>%
   select(pfpr, sma, distance, py, country) %>%
   split(.$country)
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
@@ -85,7 +86,6 @@ hosp_params$init <- lapply(1:3, function(x){
 hosp_params$block <- as.list((n_countries+1):(n_countries+3))
 df_params <- bind_rows(global_params, hosp_params, country_params)
 
-
 # Run MCMC
 cl <- parallel::makeCluster(4)
 parallel::clusterExport(cl, c("rlogit", "inc1", "dgamma2"))
@@ -94,8 +94,8 @@ mcmc <- run_mcmc(data = data_list,
                                loglike = r_loglike,
                                logprior = r_logprior,
                                misc = misc,
-                               burnin = 5000,
-                               samples = 5000,
+                               burnin = 1000,
+                               samples = 1000,
                                rungs = 1,
                                chains = 4,
                                cluster = cl)
@@ -110,7 +110,7 @@ saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
 ################################################################################
 ### Wrangle parameters #########################################################
 ################################################################################
-samples <- sample_chains(mcmc, 1000)
+samples <- sample_chains(mcmc, 3000)
 
 global_parameters <- samples %>%
   select(-contains("ccc_"), -contains("hosp"))

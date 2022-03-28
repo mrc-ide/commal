@@ -4,6 +4,7 @@ library(tidyr)
 library(purrr)
 library(ggplot2)
 library(patchwork)
+library(drjacoby)
 
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") 
@@ -40,20 +41,22 @@ correlation_plots <- patchwork::wrap_plots(cor) + plot_layout(guides = "collect"
 ### Validation against rtss ####################################################
 rtss <- read.csv("ignore/rtss/rtss_trial_data_summary.csv")
 
-cp <- country_parameters %>%
-  select(country, sample, country_capacity)
+#cp <- country_parameters %>%
+#  select(country, sample, country_capacity)
 
-rtss_prediction <- global_parameters %>%
+rtss_prediction <- parameters %>%
+  slice_sample(n = 100) %>%
+  select(-country, -hosp, -overdispersion, -group_sd) %>%
+  mutate(country_capacity = 0) %>%
   left_join(rtss, by = character()) %>%
   filter(!site == "total") %>%
-  left_join(cp, by = c("sample", "country")) %>%
-  replace_na(list(country_capacity = 0)) %>%
   mutate(sma_prevalence = gompertz(pfpr = pfpr,
                                    global_capacity = global_capacity, 
                                    country_capacity = country_capacity,
                                    pfpr_beta = pfpr_beta,
                                    shift = shift),
-         symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence, age_out_lower  = 5, age_out_upper = 17),
+         malaria_attributable_sma = sma_prevalence * (1 - chronic),
+         symptomatic_sma_prevalence = sma_prev_age_standardise(malaria_attributable_sma, age_out_lower  = 5, age_out_upper = 17),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur, py = py),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise) %>%
   group_by(sample) %>%

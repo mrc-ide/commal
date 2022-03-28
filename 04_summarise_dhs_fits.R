@@ -13,12 +13,17 @@ dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
 
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
+  group_by(country) %>%
+  slice_sample(n = 200) %>%
+  #mutate(sample = 1:n()) %>%
+  ungroup() %>%
   select(sample, country, global_capacity, country_capacity, shift, pfpr_beta) %>%
   mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country))
 
 # Global fit
 fit_draws <- parameters %>%
   select(-country, -country_capacity) %>%
+  slice_sample(n = 200) %>%
   mutate(country_capacity = 0) %>%
   left_join(data.frame(
     pfpr = seq(0, 0.7, 0.01)),
@@ -93,7 +98,7 @@ breaks <- function(){
 }
 
 fig1b <- ggplot() +
-  geom_line(data = country_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.05, col = "#00798c") +
+  geom_line(data = country_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.1, col = "#00798c") +
   geom_line(data = country_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
   geom_linerange(data = country_data, aes(y = sma, xmin = pfprl, xmax = pfpru), col = "#2e4057") +
   geom_linerange(data = country_data, aes(x = pfpr, ymin = smal, ymax = smau), col = "#2e4057") +

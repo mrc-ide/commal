@@ -26,9 +26,8 @@ predict <- parameters %>%
   slice_sample(n = 500) %>%
   select(sample, country, global_capacity, country_capacity, shift, pfpr_beta) %>%
   left_join(dhs_sma, by = "country") %>%
-  mutate(predict = pmap_dbl(select(., -country, -symp_sma_microscopy, -sample, - pfprg), gompertz)) %>%
+  mutate(predict = pmap_dbl(select(., formalArgs(gompertz)), gompertz)) %>%
   filter(!is.na(predict))
-
 
 pd1 <- predict %>%
   mutate(ml = mean(symp_sma_microscopy))
@@ -63,8 +62,6 @@ ppc3 <- ggplot(data = pd3, aes(x = predict)) +
   facet_wrap(~pfprg, scales = "free") +
   theme(strip.background = element_rect(fill = NA))
 
-
-
 # Prediction - Paton
 predict2 <- parameters %>%
   group_by(country) %>%
@@ -77,7 +74,7 @@ predict2 <- parameters %>%
          symptomatic_sma_prevalence = sma_prev_age_standardise(sma_prevalence),
          community_symptomatic_sma_inc = inc1(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / dur),
          community_recognised_sma = community_symptomatic_sma_inc * prob_recognise,
-         predict = community_recognised_sma * hosp * exp(-(1/dist_hl) * distance)) %>%
+         predict = community_recognised_sma * exp(hosp + distance_beta * distance)) %>%
   filter(!is.na(predict))
 
 pd6 <- predict2 %>%
@@ -90,7 +87,7 @@ ppc6 <- ggplot(data = pd6, aes(x = predict)) +
   theme_bw()
 
 pd7 <- predict2 %>%
-  group_by(country, site) %>%
+  group_by(country) %>%
   mutate(ml = mean(1000 * sma / py))
 
 ppc7 <- ggplot(data = pd7, aes(x = predict)) +
