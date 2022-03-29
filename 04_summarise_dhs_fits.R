@@ -8,31 +8,34 @@ library(patchwork)
 
 source("R/model_functions.R")
 
+ndraw <- 100
+
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
   mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country))
 
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
-  group_by(country) %>%
-  slice_sample(n = 200) %>%
-  #mutate(sample = 1:n()) %>%
-  ungroup() %>%
   select(sample, country, global_capacity, country_capacity, shift, pfpr_beta) %>%
   mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country))
 
 # Global fit
-fit_draws <- parameters %>%
+fit_median <- parameters %>%
   select(-country, -country_capacity) %>%
-  slice_sample(n = 200) %>%
+  summarise_all(median) %>%
   mutate(country_capacity = 0) %>%
   left_join(data.frame(
     pfpr = seq(0, 0.7, 0.01)),
     by = character()) %>%
   mutate(smapr = pmap_dbl(select(., -sample), gompertz))
 
-fit_median <- fit_draws %>%
-  group_by(pfpr) %>%
-  summarise(smapr = median(smapr))
+fit_draws <- parameters %>%
+  select(-country, -country_capacity) %>%
+  slice_sample(n = ndraw) %>%
+  mutate(country_capacity = 0) %>%
+  left_join(data.frame(
+    pfpr = seq(0, 0.7, 0.01)),
+    by = character()) %>%
+  mutate(smapr = pmap_dbl(select(., -sample), gompertz))
 
 # Country fits
 country_data <- dhs_sma %>%
@@ -56,6 +59,8 @@ country_pfpr_max_bound <- country_data %>%
   select(-pfpru)
 
 country_draws <- parameters %>%
+  group_by(country) %>%
+  slice_sample(n = ndraw) %>%
   ungroup() %>%
   left_join(data.frame(
     pfpr = seq(0, 0.9, 0.01)),
@@ -66,9 +71,18 @@ country_draws <- parameters %>%
   select(-pfprq) %>%
   mutate(smapr = pmap_dbl(select(., -country, -sample), gompertz))
 
-country_median <- country_draws %>%
-  group_by(country, pfpr) %>%
-  summarise(smapr = median(smapr))
+country_median <- parameters %>%
+  group_by(country) %>%
+  summarise_all(median) %>%
+  ungroup() %>%
+  left_join(data.frame(
+    pfpr = seq(0, 0.9, 0.01)),
+    by = character()
+  ) %>%
+  left_join(country_pfpr_max_bound, by = "country") %>%
+  filter(pfpr < pfprq) %>%
+  select(-pfprq) %>%
+  mutate(smapr = pmap_dbl(select(., -country, -sample), gompertz))
 
 
 ### Figure 1a model fitted trend ####
@@ -78,7 +92,7 @@ fig1a <- ggplot() +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab(expression(SMA~Pr[0.5-5])) + 
   theme_bw() +
-  coord_cartesian(ylim = c(0, 0.004))
+  coord_cartesian(ylim = c(0, 0.003))
 
 ### Figure 1b, fit to country data ###
 breaks <- function(){

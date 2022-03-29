@@ -1,4 +1,5 @@
 ### Figure 3 - cascade plot ####################################
+set.seed(6789)
 
 library(dplyr)
 library(tidyr)
@@ -7,8 +8,10 @@ library(forcats)
 library(ggplot2)
 library(patchwork)
 
+ndraw <- 100
 n <- 100000
 prev <- 0.0006291983
+
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   filter(country %in% c("Uganda", "Tanzania", "Kenya")) %>%
@@ -22,7 +25,7 @@ parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
   )
 
 p1 <- parameters %>% 
-  slice_sample(n = 200) %>%
+  slice_sample(n = ndraw) %>%
   select(c(sample,a:c)) %>%
   pivot_longer(-sample, names_to = "step", values_to = "n") %>%
   mutate(step = factor(step,
@@ -42,6 +45,6 @@ fig3 <- ggplot(p1, aes(x = step, y = n, col = step)) +
   geom_segment(x = 3.65, xend = 3.65, y = median(parameters$a), yend = median(parameters$c), col = "black") +
   geom_segment(x = 3.55, xend = 3.65, y = median(parameters$a), yend = median(parameters$a), col = "black") +
   geom_segment(x = 3.55, xend = 3.65, y = median(parameters$c), yend = median(parameters$c), col = "black") +
-  geom_text(aes(label = "Care\ngap", x = 3.9 , y = (median(parameters$b) + median(parameters$c)) / 2), col = "black")
+  geom_text(aes(label = "Care\ngap", x = 3.9 , y = (median(parameters$a) + median(parameters$c)) / 2), col = "black")
 
 ggsave("figures_tables/fig3.png", fig3, height = 6, width = 6)

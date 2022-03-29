@@ -24,7 +24,7 @@ paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
 
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
-  select(pfpr, symp_sma_microscopy, chronic_amaemia, country) %>%
+  select(pfpr, symp_sma_microscopy, chronic_anaemia, country) %>%
   split(.$country)
 cn <- as.character(sapply(dhs_sma, function(x)x$country[1]))
 names(dhs_sma) <- cn
@@ -36,7 +36,7 @@ n_countries <- length(dhs_sma)
 
 # Data input list for MCMC
 data_list <- list(
-  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "symp_sma_microscopy", "chronic_amaemia")]),
+  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "symp_sma_microscopy", "chronic_anaemia")]),
   paton = lapply(paton, function(x) x[,c("pfpr", "distance", "py", "sma")])
 )
 
@@ -97,8 +97,8 @@ mcmc <- run_mcmc(data = data_list,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 400,
-                 samples = 100,
+                 burnin = 4000,
+                 samples = 4000,
                  rungs = 1,
                  chains = 4,
                  cluster = cl)

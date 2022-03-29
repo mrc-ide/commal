@@ -13,18 +13,16 @@ dhs_sma <- dhs_data_raw  %>%
     anemia_level %in% c("non_severe", "severe"),
     !is.na(prevalence)) %>%
   mutate(
-    # Chronic malaria: see page 13 of doi:10.1111/tmi.12313
-    chronic_amaemia = ifelse(anemia_level == "severe" & microscopy == "negative", 1, 0),
-    # Severe anaemia + malaria + symptoms
+    # Non-malarial anemia / Chronic malaria: see page 13 of doi:10.1111/tmi.12313
+    chronic_anaemia = ifelse(anemia_level == "severe" & microscopy == "negative", 1, 0),
+    # Severe anaemia + malaria + associated symptoms
     symp_sma_microscopy = ifelse(anemia_level == "severe" & microscopy == "positive" & 
-                                   (fever == "yes" | Impaired_consciousness == "yes" | Impaired_breathing == "yes"), 1, 0)
+                                   (fever == "yes" | Jaundice == "yes" | Pale_or_cold == "yes"), 1, 0)
   ) %>%
   filter(!is.na(symp_sma_microscopy)) %>%
   rename(pfpr = prevalence) %>%
-  #left_join(treatment_access_admin, by = c("country", "admin1")) %>%
-  dplyr::select(iso, country, cluster, survey_year, year, pfpr, microscopy, hb, symp_sma_microscopy, chronic_amaemia) %>%
+  dplyr::select(iso, country, cluster, survey_year, year, pfpr, microscopy, hb, symp_sma_microscopy, chronic_anaemia) %>%
   mutate(countryn = as.numeric(factor(country, levels = country_levels)))
-
 
 nrow(dhs_sma)
 
@@ -42,7 +40,7 @@ paton_data <- paton_data_raw %>%
   mutate(
     sma_n_modelled = round((sma_modelled / 1000) * py),
     sma_n_diamond = round((sma_diamond / 1000) * py),
-         distance = dist_min + ((dist_max - dist_min) / 2)) %>%
+    distance = dist_min + ((dist_max - dist_min) / 2)) %>%
   mutate(countryn = as.numeric(factor(country, levels = country_levels)))
 
 pd <- paton_data  %>%

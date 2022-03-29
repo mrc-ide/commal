@@ -12,7 +12,7 @@ r_loglike <- function(params, data, misc) {
                                     shift = params["shift"])
     
     loglike <- sum(dbinom(data$dhs[[block]]$symp_sma_microscopy, 1, prob_dhs, log = T)) +
-      sum(dbinom(data$dhs[[block]]$chronic_amaemia, 1, params["chronic"], log = T))
+      sum(dbinom(data$dhs[[block]]$chronic_anaemia, 1, params["chronic"], log = T))
   }
   
   if(block %in% (n_countries + 1):(n_countries + 3)){
@@ -47,8 +47,8 @@ r_loglike <- function(params, data, misc) {
 r_logprior <- function(params, misc){
   ret <- 
     sum(dnorm(params[c("global_capacity", "shift", "pfpr_beta")], 0, 10, log = TRUE)) +
-    # Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
-    sum(dgamma(params["dur"], shape = 1.54, rate = 0.33, log = TRUE)) +
+    # Probably a minimum bound: Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
+    sum(dgamma2(params["dur"], mean = 14, var = 500, log = TRUE)) +
     sum(dunif(params["chronic"], 0, 1, log = TRUE)) +
     # Prior from Shellenberg (2003) Figure 2 (see paragraph text)
     sum(dbeta(params["prob_recognise"], 14, 43 - 14, log = TRUE)) +
