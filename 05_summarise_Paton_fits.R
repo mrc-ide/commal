@@ -12,7 +12,6 @@ source("R/paton_fits.R")
 source("R/odds_probability.R")
 source("R/cascade.R")
 
-
 ################################################################################
 # Model fit ####################################################################
 ################################################################################
@@ -20,12 +19,14 @@ source("R/cascade.R")
 # Number of uncertainty draws to plot
 ndraw <- 100
 
+pfpr_range <- seq(0, 0.7, 0.01)
+
 # Paton data
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
   rename(sma = sma_n_modelled) %>%
   select(pfpr, sma, distance, py, country, sma_modelled, sma_diamond)
 # Paton model fit
-paton_model_prediction <- data.frame(pfpr = seq(0, 0.8, 0.01)) %>%
+paton_model_prediction <- data.frame(pfpr = pfpr_range) %>%
   mutate(hospital = paton_sma(pfpr)) %>%
   mutate(model = "Paton")
 # Load fit
@@ -43,17 +44,17 @@ country_attributes <- paton %>%
 # Median
 median_country_fit <- paton %>%
   left_join(parameters, by = "country") %>%
-  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, prob_recognise, hosp, distance_beta) %>%
+  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, hosp, distance_beta) %>%
   group_by(country) %>%
   summarise_all(median) %>%
   left_join(country_attributes, by = "country") %>%
-  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  mutate(symptomatic_sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         hospital = cascade(symptomatic_sma_prevalence = symptomatic_sma_prevalence,
+  left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         hospital = cascade(sma_prevalence = sma_prevalence,
+                            pfpr = pfpr,
                             chronic = chronic,
                             dur = dur,
                             py = 1000,
-                            prob_recognise = prob_recognise,
                             hosp = hosp,
                             distance_beta = distance_beta,
                             distance = distance))
@@ -66,19 +67,19 @@ median_global_fit <- median_country_fit %>%
 # Uncertainty draws
 draw_country_fit <- paton %>%
   left_join(parameters, by = "country") %>%
-  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, prob_recognise, hosp, distance_beta) %>%
+  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, hosp, distance_beta) %>%
   group_by(country) %>%
   slice_sample(n = ndraw) %>%
   mutate(sample = 1:ndraw) %>%
   ungroup() %>%
   left_join(country_attributes, by = "country") %>%
-  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  mutate(symptomatic_sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         hospital = cascade(symptomatic_sma_prevalence = symptomatic_sma_prevalence,
+  left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         hospital = cascade(sma_prevalence = sma_prevalence,
+                            pfpr = pfpr,
                             chronic = chronic,
                             dur = dur,
                             py = 1000,
-                            prob_recognise = prob_recognise,
                             hosp = hosp,
                             distance_beta = distance_beta,
                             distance = distance))
@@ -87,7 +88,6 @@ draw_global_fit <- draw_country_fit %>%
   group_by(pfpr, sample) %>%
   summarise(hospital = weighted.mean(hospital, weight)) %>%
   mutate(model = "Winskill")
-
 
 # Plotting 
 global_plot <- ggplot() +
@@ -126,9 +126,9 @@ prob_hosp_pd <- parameters %>%
 
 # Plotting
 prob_hosp_plot <- ggplot(prob_hosp_pd, aes(x = ph)) +
-  geom_histogram(binwidth = 0.05, col = "white", fill = "black") + 
+  geom_histogram(binwidth = 0.02, col = "white", fill = "black", size = 0.01) + 
   facet_wrap(~ country) +
-  xlab("Probability hospital | symptoms recognised") +
+  xlab("Probability hospital") +
   xlim(0, 1) +
   theme_bw() +
   theme(strip.background = element_rect(fill = NA),
@@ -139,20 +139,13 @@ prob_hosp_plot <- ggplot(prob_hosp_pd, aes(x = ph)) +
 ggsave("figures_tables/figS_prob_hosp.png", prob_hosp_plot, height = 3, width = 8)
 
 # Table
-# prob_hosp_table <- parameters %>%
+prob_hosp_table <- parameters %>%
   mutate(ph = p(exp(hosp))) %>%
   group_by(country) %>%
   summarise(
-    severe_recognisedl = quantile(prob_recognise, 0.025),
-    severe_recognised = median(prob_recognise),
-    severe_recognisedu = quantile(prob_recognise, 0.975),
     probability_hospitall = quantile(ph, 0.025),
     probability_hospital = median(ph),
-    probability_hospitalu = quantile(ph, 0.975),
-    proportion_no_hospl = 1 - quantile(prob_recognise * ph, 0.975),
-    proportion_no_hosp = 1 - median(prob_recognise * ph),
-    proportion_no_hospu = 1 - quantile(prob_recognise * ph, 0.025)
-    )
+    probability_hospitalu = quantile(ph, 0.975))
 
 write.csv(prob_hosp_table, "figures_tables/probability_hospital.csv", row.names = FALSE)
 
@@ -172,7 +165,7 @@ draw_distance_global_fit <- paton %>%
   mutate(sample = 1:ndraw) %>%
   ungroup() %>% 
   left_join(select(country_attributes, country, weight), by = "country") %>%
-  left_join(data.frame(distance = seq(0, 100, 0.1)), by = character()) %>%
+  left_join(data.frame(distance = seq(0, 50, 0.1)), by = character()) %>%
   mutate(p_hospital = p(exp(hosp + distance_beta * distance))) %>%
   group_by(distance, sample) %>%
   summarise(p_hospital = weighted.mean(p_hospital, weight))
@@ -183,7 +176,7 @@ median_distance_global_fit <- paton %>%
   group_by(country) %>%
   summarise_all(median) %>% 
   left_join(select(country_attributes, country, weight), by = "country") %>%
-  left_join(data.frame(distance = seq(0, 100, 0.1)), by = character()) %>%
+  left_join(data.frame(distance = seq(0, 50, 0.1)), by = character()) %>%
   mutate(p_hospital = p(exp(hosp + distance_beta * distance))) %>%
   group_by(distance) %>%
   summarise(p_hospital = weighted.mean(p_hospital, weight))
@@ -208,13 +201,13 @@ ggsave("figures_tables/figS_distance.png", distance_plot, height = 4, width = 4)
 
 median_country_fit_no_adj <- paton %>%
   left_join(parameters, by = "country") %>%
-  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, prob_recognise, hosp, distance_beta) %>%
+  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, hosp, distance_beta) %>%
   group_by(country) %>%
   summarise_all(median) %>%
   left_join(country_attributes, by = "country") %>%
-  left_join(data.frame(pfpr = seq(0, 0.8, 0.01)), by = character()) %>%
-  mutate(symptomatic_sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         severe_inc = prev_to_inc(prevalence = symptomatic_sma_prevalence, recovery_rate = 1 / 2, py = 1000))
+  left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
+  mutate(sma = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         severe_inc = prev_to_inc(prevalence = sma, recovery_rate = 1 / 4, py = 1000))
 
 median_global_fit_no_adj <- median_country_fit_no_adj %>%
   group_by(pfpr) %>%

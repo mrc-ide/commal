@@ -46,9 +46,9 @@ country_data <- dhs_sma %>%
     pfprl = quantile(pfpr, 0.025),
     pfpru = quantile(pfpr, 0.975),
     pfpr = mean(pfpr),
-    sma = mean(symp_sma_microscopy),
-    smal = binom::binom.exact(sum(symp_sma_microscopy), n())$lower,
-    smau = binom::binom.exact(sum(symp_sma_microscopy), n())$upper
+    smal = binom::binom.exact(sum(sma), n())$lower,
+    smau = binom::binom.exact(sum(sma), n())$upper,
+    sma = mean(sma)
   )
 
 country_pfpr_max_bound <- country_data %>%
@@ -84,6 +84,15 @@ country_median <- parameters %>%
   select(-pfprq) %>%
   mutate(smapr = pmap_dbl(select(., -country, -sample), gompertz))
 
+# To order country plots by mean SMA prevalence
+country_order <- dhs_sma %>%
+  group_by(country) %>%
+  summarise(sma = mean(sma)) %>%
+  ungroup() %>%
+  arrange(-sma)
+
+country_draws$country <- factor(country_draws$country, levels = country_order$country)
+country_median$country <- factor(country_median$country, levels = country_order$country)
 
 ### Figure 1a model fitted trend ####
 fig1a <- ggplot() +
@@ -92,7 +101,7 @@ fig1a <- ggplot() +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab(expression(SMA~Pr[0.5-5])) + 
   theme_bw() +
-  coord_cartesian(ylim = c(0, 0.003))
+  coord_cartesian(ylim = c(0, 0.005))
 
 ### Figure 1b, fit to country data ###
 breaks <- function(){
@@ -111,7 +120,6 @@ breaks <- function(){
   }
 }
 
-
 fig1b <- ggplot() +
   geom_line(data = country_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.1, col = "#00798c") +
   geom_line(data = country_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
@@ -122,7 +130,7 @@ fig1b <- ggplot() +
   ylab(expression(SMA~Pr[0.5-5])) + 
   scale_x_continuous(breaks = breaks()) +
   theme_bw() +
-  facet_wrap(~ country, ncol = 6) +
+  facet_wrap(~ country, ncol = 6, scales = "free") +
   theme(strip.background = element_rect(fill = NA),
         strip.text = element_text(size = 6),
         axis.text = element_text(size = 6))

@@ -2,7 +2,10 @@
 # Malaria attributable prevalence
 # Assumed to be prevalence minus the background prevalence (Hb<5 and m-ve)
 malaria_attributable <- function(sma_prevalence, chronic_sa_prevalence, pfpr){
-  (sma_prevalence - (pfpr * chronic_sa_prevalence)) / (1 - chronic_sa_prevalence)
+  adjusted <- (sma_prevalence - (pfpr * chronic_sa_prevalence)) / (1 - chronic_sa_prevalence)
+  adjusted <- pmax(0, adjusted)
+  adjusted <- pmin(adjusted, 1)
+  return(adjusted)
 }
 
 # Standardise estimate of SMA prevalence for age range
