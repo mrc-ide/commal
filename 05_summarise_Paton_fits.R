@@ -139,7 +139,7 @@ prob_hosp_plot <- ggplot(prob_hosp_pd, aes(x = ph)) +
 ggsave("figures_tables/figS_prob_hosp.png", prob_hosp_plot, height = 3, width = 8)
 
 # Table
-prob_hosp_table <- parameters %>%
+# prob_hosp_table <- parameters %>%
   mutate(ph = p(exp(hosp))) %>%
   group_by(country) %>%
   summarise(

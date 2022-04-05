@@ -48,15 +48,17 @@ r_logprior <- function(params, misc){
   ret <- 
     sum(dnorm(params[c("global_capacity", "shift", "pfpr_beta")], 0, 10, log = TRUE)) +
     # Probably a minimum bound: Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
-    sum(dgamma2(params["dur"], mean = 14, var = 500, log = TRUE)) +
+    sum(dgamma2(params["dur"], mean = 14, var = 150, log = TRUE)) +
     sum(dunif(params["chronic"], 0, 1, log = TRUE)) +
     # Prior from Shellenberg (2003) Figure 2 (see paragraph text)
     sum(dbeta(params["prob_recognise"], 14, 43 - 14, log = TRUE)) +
     sum(dlnorm(params["overdispersion"], 0, 5, log = TRUE)) +
-    sum(dlnorm(params["group_sd"], 0, 5, log = TRUE)) +
+    #sum(dlnorm(params["group_sd"], 0, 5, log = TRUE)) +
+    sum(dunif(params["group_sd"], 0, 10000, log = TRUE)) +
     sum(dnorm(params[grepl("ccc", names(params))], 0, 10, log = TRUE)) +
     # Weakly informative prior on prop hospitalisation (mean set to match mean across all countries of mu_DA from Camponovo)
-    sum(dnorm(params[grepl("hosp_", names(params))], -0.35, 1, log = TRUE)) +
+    #sum(dnorm(params[grepl("hosp_", names(params))], -0.35, 1, log = TRUE)) +
+    sum(dnorm(params[grepl("hosp_", names(params))], 0, 1.4, log = TRUE)) +
     sum(dnorm(params["distance_beta"], 0, 10, log = TRUE))
   return(ret)
 }

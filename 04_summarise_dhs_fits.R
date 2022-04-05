@@ -111,6 +111,7 @@ breaks <- function(){
   }
 }
 
+
 fig1b <- ggplot() +
   geom_line(data = country_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.1, col = "#00798c") +
   geom_line(data = country_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
@@ -121,7 +122,7 @@ fig1b <- ggplot() +
   ylab(expression(SMA~Pr[0.5-5])) + 
   scale_x_continuous(breaks = breaks()) +
   theme_bw() +
-  facet_wrap(~ country, scales = "free", ncol = 6) +
+  facet_wrap(~ country, ncol = 6) +
   theme(strip.background = element_rect(fill = NA),
         strip.text = element_text(size = 6),
         axis.text = element_text(size = 6))
