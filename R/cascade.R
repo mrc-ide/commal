@@ -37,8 +37,8 @@ sma_prev_age_standardise <- function(prevalence,
 }
 
 # Recognised severe incidence that gets to hospital, modified by distance.
-hospitalised <- function(recognised_incidence, hosp, distance_beta, distance){
-  recognised_incidence * exp(hosp + distance_beta * distance)
+hospitalised <- function(incidence, hosp, distance_beta, distance){
+  incidence * exp(hosp + distance_beta * distance)
 }
 
 # Wrapper for the cascade from prevalence to hospitalised incidence
@@ -48,6 +48,6 @@ cascade <- function(sma_prevalence, chronic, pfpr, dur, py,
     malaria_attributable(chronic_sa_prevalence = chronic,
                          pfpr = pfpr) %>%
     sma_prev_age_standardise() %>%
-    prev_to_inc(recovery_rate = 1 / dur, py = py ) %>%
+    prev_to_inc(recovery_rate = 1 / dur, py = py) %>%
     hospitalised(hosp = hosp, distance_beta = distance_beta, distance = distance)
 }

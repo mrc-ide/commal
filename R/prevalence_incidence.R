@@ -52,7 +52,7 @@ prev_to_inc <- function(prevalence, recovery_rate, py = 1000){
 #' @param period_prevalence_duration Duration of prevalence survey period
 #'
 #' @return Incidence rate.
-inc2 <- function(period_prevalence, recovery_rate, period_prevalence_duration){
+prev_to_inc2 <- function(period_prevalence, recovery_rate, period_prevalence_duration){
   inc <- rep(NA, length(period_prevalence))
   
   for(i in seq_along(period_prevalence)){
