@@ -50,7 +50,9 @@ r_logprior <- function(params, misc){
   ret <- 
     sum(dnorm(params[c("global_capacity", "shift", "pfpr_beta")], 0, 10, log = TRUE)) +
     # Probably a minimum bound: Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
-    sum(dgamma2(params["dur"], mean = 4.61, var = 50, log = TRUE)) +
+    sum(dgamma(params["dur"], shape = 1.546, rate = 0.335, log = TRUE)) +
+    #sum(dgamma2(params["dur"], mean = 4.61, var = 10, log = TRUE)) +
+    # sum(dgamma2(params["dur"], mean = 4.61, var = 50, log = TRUE)) +
     #sum(dgamma2(params["dur"], mean = 14, var = 150, log = TRUE)) +
     sum(dunif(params[grepl("chronic", names(params))], 0, 1, log = TRUE)) +
     sum(dlnorm(params["overdispersion"], 0, 5, log = TRUE)) +

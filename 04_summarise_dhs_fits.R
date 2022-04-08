@@ -139,4 +139,4 @@ fig1 <- (fig1a | fig1b) +
   plot_annotation(tag_levels = "A") +
   plot_layout(widths = c(1, 1.5))
 
-ggsave("figures_tables/fig1.png", fig1, width = 12, height = 5)
+ggsave("ignore/figures_tables/fig1.png", fig1, width = 12, height = 5)

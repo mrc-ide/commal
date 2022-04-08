@@ -20,7 +20,7 @@ re_plot <- ggplot(parameters, aes(x = country, fill = country, y = country_capac
   coord_flip() +
   theme_bw()
 
-ggsave("figures_tables/figS_random_effects.png", re_plot, height = 4, width = 6)
+ggsave("ignore/figures_tables/figS_random_effects.png", re_plot, height = 4, width = 6)
 
 # Correlation with GPD
 re <- parameters %>% 
@@ -51,7 +51,7 @@ re_gdp_plot <- ggplot(gdp_re, aes(x = gdp, y = upper)) +
   theme_bw() +
   scale_x_log10()
 
-ggsave("figures_tables/figS_random_effects_GDP.png", re_gdp_plot, height = 4, width = 6)
+ggsave("ignore/figures_tables/figS_random_effects_GDP.png", re_gdp_plot, height = 4, width = 6)
 ################################################################################
 
 ### Parameter plots ############################################################
@@ -66,7 +66,7 @@ hist_plots <- patchwork::wrap_plots(lapply(pp, function(x) x$hist), ncol = lengt
 acf_plots <- patchwork::wrap_plots(lapply(pp, function(x) x$acf), ncol = length(p))
 parameter_plots <- trace_plots / hist_plots / acf_plots
 
-ggsave("figures_tables/figS_parameter_plots.png", parameter_plots, height = 10, width = 24)
+ggsave("ignore/figures_tables/figS_parameter_plots.png", parameter_plots, height = 10, width = 24)
 
 # Correlations between global pars
 cor <- apply(combn(p, 2), 2, function(x){
@@ -74,7 +74,7 @@ cor <- apply(combn(p, 2), 2, function(x){
 })
 correlation_plots <- patchwork::wrap_plots(cor) + plot_layout(guides = "collect")
 
-ggsave("figures_tables/figS_correlation_plots.png", correlation_plots, height = 10, width = 24)
+ggsave("ignore/figures_tables/figS_correlation_plots.png", correlation_plots, height = 10, width = 24)
 ################################################################################
 
 ### Validation against rtss ####################################################
@@ -99,6 +99,6 @@ rtss_plot <- ggplot(rtss_prediction, aes(x = inc)) +
   geom_vline(xintercept = 54, lty = 2, col = "darkred") +
   theme_bw()
 
-ggsave("figures_tables/figS_rtss_plot.png", rtss_plot, height = 10, width = 24)
+ggsave("ignore/figures_tables/figS_rtss_plot.png", rtss_plot, height = 10, width = 24)
 ################################################################################
 

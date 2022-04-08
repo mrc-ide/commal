@@ -115,9 +115,9 @@ ppc8 <- ggplot() +
   facet_wrap(~siteyear, scales = "free") +
   theme(strip.background = element_rect(fill = NA))
 
-ggsave("figures_tables/ppc/ppc1.png", ppc1)
-ggsave("figures_tables/ppc/ppc2.png", ppc2, height = 10, width = 12)
-ggsave("figures_tables/ppc/ppc3.png", ppc3)
-ggsave("figures_tables/ppc/ppc6.png", ppc6)
-ggsave("figures_tables/ppc/ppc7.png", ppc7, height = 3, width = 8)
-ggsave("figures_tables/ppc/ppc8.png", ppc8, height = 10, width = 12)
+ggsave("ignore/figures_tables/ppc/ppc1.png", ppc1)
+ggsave("ignore/figures_tables/ppc/ppc2.png", ppc2, height = 10, width = 12)
+ggsave("ignore/figures_tables/ppc/ppc3.png", ppc3)
+ggsave("ignore/figures_tables/ppc/ppc6.png", ppc6)
+ggsave("ignore/figures_tables/ppc/ppc7.png", ppc7, height = 3, width = 8)
+ggsave("ignore/figures_tables/ppc/ppc8.png", ppc8, height = 10, width = 12)

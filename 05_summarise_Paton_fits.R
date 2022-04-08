@@ -65,6 +65,7 @@ median_global_fit <- median_country_fit %>%
   mutate(model = "Winskill")
 
 # Uncertainty draws
+  # TODO would this be neater/work better if we took the weigthed mean of country-specific pars first?
 draw_country_fit <- paton %>%
   left_join(parameters, by = "country") %>%
   select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, hosp, distance_beta) %>%
@@ -100,7 +101,7 @@ global_plot <- ggplot() +
   theme_bw() +
   ylim(0, 3.5)
 
-ggsave("figures_tables/fig2.png", global_plot, height = 4, width = 5)
+ggsave("ignore/figures_tables/fig2.png", global_plot, height = 4, width = 5)
 
 country_plot <- ggplot() +
   geom_point(data = paton, aes(x = pfpr, y = sma_modelled)) +
@@ -112,7 +113,7 @@ country_plot <- ggplot() +
   facet_wrap(~ country) +
   theme(strip.background = element_rect(fill = NA))
 
-ggsave("figures_tables/figS1.png", country_plot, height = 4, width = 8)
+ggsave("ignore/figures_tables/figS1.png", country_plot, height = 4, width = 8)
 ################################################################################
 ################################################################################
 ################################################################################
@@ -136,7 +137,7 @@ prob_hosp_plot <- ggplot(prob_hosp_pd, aes(x = ph)) +
         axis.title.y = element_blank(),
         axis.ticks.y = element_blank())
 
-ggsave("figures_tables/figS_prob_hosp.png", prob_hosp_plot, height = 3, width = 8)
+ggsave("ignore/figures_tables/figS_prob_hosp.png", prob_hosp_plot, height = 3, width = 8)
 
 # Table
 prob_hosp_table <- parameters %>%
@@ -147,7 +148,7 @@ prob_hosp_table <- parameters %>%
     probability_hospital = median(ph),
     probability_hospitalu = quantile(ph, 0.975))
 
-write.csv(prob_hosp_table, "figures_tables/probability_hospital.csv", row.names = FALSE)
+write.csv(prob_hosp_table, "ignore/figures_tables/probability_hospital.csv", row.names = FALSE)
 
 ################################################################################
 ################################################################################
@@ -188,7 +189,7 @@ distance_plot <- ggplot() +
   xlab("Distance") +
   theme_bw()
 
-ggsave("figures_tables/figS_distance.png", distance_plot, height = 4, width = 4)
+ggsave("ignore/figures_tables/figS_distance.png", distance_plot, height = 4, width = 4)
 ################################################################################
 ################################################################################
 ################################################################################
@@ -223,7 +224,7 @@ global_plot_no_adj <- ggplot() +
   ylab("Annual hospitalised incidence per 1000 children") +
   theme_bw()
 
-ggsave("figures_tables/figS_no_adjustment.png", global_plot_no_adj, height = 4, width = 4)
+ggsave("ignore/figures_tables/figS_no_adjustment.png", global_plot_no_adj, height = 4, width = 4)
 ################################################################################
 ################################################################################
 ################################################################################
