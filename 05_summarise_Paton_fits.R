@@ -29,25 +29,35 @@ paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
 paton_model_prediction <- data.frame(pfpr = pfpr_range) %>%
   mutate(hospital = paton_sma(pfpr)) %>%
   mutate(model = "Paton")
-# Load fit
-parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
-  filter(country %in% c("Uganda", "Tanzania", "Kenya"))
-
 # Summarise attributes of countries
 country_attributes <- paton %>%
   group_by(country) %>%
   summarise(
     distance = weighted.mean(distance, py),
-    weight = sum(py)
-  )
+    weight = sum(py))
+
+# Load fit
+country_parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
+  filter(country %in% c("Uganda", "Tanzania", "Kenya")) %>%
+  left_join(country_attributes, by = "country")
+country_parameters_median <- country_parameters %>%
+  group_by(country) %>% 
+  summarise(across(everything(), median))
+
+# For a summary across all three countries we take the sample-weighted mean parameter estimate for
+# each draw of country-specific parameters
+all_parameters <- country_parameters %>%
+  filter(sample <= 10000) %>%
+  select(-country) %>%
+  group_by(sample) %>%
+  summarise(across(everything(), weighted.mean, weights = weights)) %>%
+  ungroup()
+
+all_parameters_median <- all_parameters %>%
+  summarise(across(everything(), median))
 
 # Median
-median_country_fit <- paton %>%
-  left_join(parameters, by = "country") %>%
-  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, hosp, distance_beta) %>%
-  group_by(country) %>%
-  summarise_all(median) %>%
-  left_join(country_attributes, by = "country") %>%
+median_country_fit <- country_parameters_median %>%
   left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
   mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
          hospital = cascade(sma_prevalence = sma_prevalence,
@@ -59,21 +69,10 @@ median_country_fit <- paton %>%
                             distance_beta = distance_beta,
                             distance = distance))
 
-median_global_fit <- median_country_fit %>%
-  group_by(pfpr) %>%
-  summarise(hospital = weighted.mean(hospital, weight)) %>%
-  mutate(model = "Winskill")
-
-# Uncertainty draws
-  # TODO would this be neater/work better if we took the weigthed mean of country-specific pars first?
-draw_country_fit <- paton %>%
-  left_join(parameters, by = "country") %>%
-  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, hosp, distance_beta) %>%
+draw_country_fit <- country_parameters %>%
   group_by(country) %>%
   slice_sample(n = ndraw) %>%
-  mutate(sample = 1:ndraw) %>%
   ungroup() %>%
-  left_join(country_attributes, by = "country") %>%
   left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
   mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
          hospital = cascade(sma_prevalence = sma_prevalence,
@@ -85,9 +84,31 @@ draw_country_fit <- paton %>%
                             distance_beta = distance_beta,
                             distance = distance))
 
-draw_global_fit <- draw_country_fit %>%
-  group_by(pfpr, sample) %>%
-  summarise(hospital = weighted.mean(hospital, weight)) %>%
+median_global_fit <- all_parameters_median %>%
+  left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         hospital = cascade(sma_prevalence = sma_prevalence,
+                            pfpr = pfpr,
+                            chronic = chronic,
+                            dur = dur,
+                            py = 1000,
+                            hosp = hosp,
+                            distance_beta = distance_beta,
+                            distance = distance)) %>%
+  mutate(model = "Winskill")
+
+draw_global_fit <- all_parameters %>%
+  slice_sample(n = ndraw) %>%
+  left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         hospital = cascade(sma_prevalence = sma_prevalence,
+                            pfpr = pfpr,
+                            chronic = chronic,
+                            dur = dur,
+                            py = 1000,
+                            hosp = hosp,
+                            distance_beta = distance_beta,
+                            distance = distance)) %>%
   mutate(model = "Winskill")
 
 # Plotting 
@@ -122,7 +143,7 @@ ggsave("ignore/figures_tables/figS1.png", country_plot, height = 4, width = 8)
 # Prob hospital ################################################################
 ################################################################################
 
-prob_hosp_pd <- parameters %>%
+prob_hosp_pd <- country_parameters %>%
   mutate(ph = p(exp(hosp)))
 
 # Plotting
@@ -140,8 +161,7 @@ prob_hosp_plot <- ggplot(prob_hosp_pd, aes(x = ph)) +
 ggsave("ignore/figures_tables/figS_prob_hosp.png", prob_hosp_plot, height = 3, width = 8)
 
 # Table
-prob_hosp_table <- parameters %>%
-  mutate(ph = p(exp(hosp))) %>%
+prob_hosp_table <- prob_hosp_pd %>%
   group_by(country) %>%
   summarise(
     probability_hospitall = quantile(ph, 0.025),
@@ -155,31 +175,53 @@ write.csv(prob_hosp_table, "ignore/figures_tables/probability_hospital.csv", row
 ################################################################################
 
 ################################################################################
+### Community versus hospital inc ##############################################
+################################################################################
+
+community_hosp <- all_parameters_median %>% 
+  left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         ma_sma = malaria_attributable(sma_prevalence, chronic_sa_prevalence = chronic, pfpr = pfpr),
+         as_ma_sma = sma_prev_age_standardise(ma_sma),
+         Community = prev_to_inc(as_ma_sma, recovery_rate = 1 / dur),
+         Hospital = hospitalised(Community, hosp = hosp,
+                                 distance_beta = distance_beta,
+                                 distance = distance),
+         All = Community + Hospital)
+
+spd <- community_hosp %>%
+  select(pfpr, Community, Hospital) %>%
+  pivot_longer(cols = -pfpr, names_to = "type", values_to = "inc")
+         
+community_hospital_burden_plot <- ggplot(spd, aes(x = pfpr, y = inc, fill = type)) +
+  geom_area() +
+  scale_fill_manual(name = "", values = c("#619cff", "#00c19f")) +
+  ylab("Annual incidence per 1000 children") +
+  xlab(expression(~italic(Pf)~Pr[2-10])) +
+  theme_bw()
+
+ggsave("ignore/figures_tables/fig_community_hospital_burden_plot.png", community_hospital_burden_plot, height = 3, width = 5)
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
 # Distance #####################################################################
 ################################################################################
 
-draw_distance_global_fit <- paton %>%
-  left_join(parameters, by = "country") %>%
-  select(country, hosp, distance_beta) %>%
-  group_by(country) %>%
+draw_distance_global_fit <- all_parameters %>%
+  select(-distance)  %>%
   slice_sample(n = ndraw) %>%
-  mutate(sample = 1:ndraw) %>%
-  ungroup() %>% 
-  left_join(select(country_attributes, country, weight), by = "country") %>%
   left_join(data.frame(distance = seq(0, 50, 0.1)), by = character()) %>%
   mutate(p_hospital = p(exp(hosp + distance_beta * distance))) %>%
   group_by(distance, sample) %>%
   summarise(p_hospital = weighted.mean(p_hospital, weight))
 
-median_distance_global_fit <- paton %>%
-  left_join(parameters, by = "country") %>%
-  select(country, hosp, distance_beta) %>%
-  group_by(country) %>%
-  summarise_all(median) %>% 
-  left_join(select(country_attributes, country, weight), by = "country") %>%
+median_distance_global_fit <- all_parameters_median %>%
+  select(-distance)  %>%
   left_join(data.frame(distance = seq(0, 50, 0.1)), by = character()) %>%
   mutate(p_hospital = p(exp(hosp + distance_beta * distance))) %>%
-  group_by(distance) %>%
+  group_by(distance, sample) %>%
   summarise(p_hospital = weighted.mean(p_hospital, weight))
 
 distance_plot <- ggplot() +
@@ -199,22 +241,10 @@ ggsave("ignore/figures_tables/figS_distance.png", distance_plot, height = 4, wid
 ################################################################################
 
 # Assume all symptomatic are severe and malaria-attributable, all severe are recognised and all recognised go to hospital
-
-median_country_fit_no_adj <- paton %>%
-  left_join(parameters, by = "country") %>%
-  select(country, global_capacity, country_capacity, pfpr_beta, shift, chronic, dur, hosp, distance_beta) %>%
-  group_by(country) %>%
-  summarise_all(median) %>%
-  left_join(country_attributes, by = "country") %>%
+median_global_fit_no_adj <- all_parameters_median %>%
   left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
-  mutate(sma = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         severe_inc = prev_to_inc(prevalence = sma, recovery_rate = 1 / 4, py = 1000))
-
-median_global_fit_no_adj <- median_country_fit_no_adj %>%
-  group_by(pfpr) %>%
-  summarise(
-    severe_inc = weighted.mean(severe_inc, weight)) %>%
-  mutate(model = "Winskill")
+  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         severe_inc = prev_to_inc(prevalence = sma_prevalence, recovery_rate = 1 / 4, py = 1000))
 
 # Plotting 
 global_plot_no_adj <- ggplot() +
