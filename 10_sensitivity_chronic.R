@@ -1,4 +1,4 @@
-### Model fitting ##############################################################
+### Model fitting: sensitivity chronic #########################################
 
 # Load packages
 library(drjacoby)
@@ -24,6 +24,7 @@ paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
 
 dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
+  mutate(chronic_anaemia = 0) %>%
   select(pfpr, sma, chronic_anaemia, country) %>%
   split(.$country)
 cn <- as.character(sapply(dhs_sma, function(x)x$country[1]))
@@ -105,13 +106,13 @@ mcmc <- run_mcmc(data = data_list,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 50000,
-                 samples = 50000,
+                 burnin = 5000,
+                 samples = 5000,
                  rungs = 1,
                  chains = 4,
                  cluster = cl)
 parallel::stopCluster(cl)
-saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
+saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc_sensitivity_chronic.rds")
 #plot_par(mcmc)
 
 ################################################################################
@@ -147,7 +148,7 @@ parameters <- global_parameters %>%
   left_join(hospital_parameters, by = c("country", "sample")) %>%
   select(country, sample, everything())
 
-saveRDS(parameters, "ignore/prob_hosp/mcmc_fits/parameters.rds")
+saveRDS(parameters, "ignore/prob_hosp/mcmc_fits/parameters_sensitivity_chronic.rds")
 ################################################################################
 ################################################################################
 ################################################################################

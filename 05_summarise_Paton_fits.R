@@ -122,7 +122,7 @@ global_plot <- ggplot() +
   theme_bw() +
   ylim(0, 3.5)
 
-ggsave("ignore/figures_tables/fig2.png", global_plot, height = 4, width = 5)
+ggsave("ignore/figures_tables/Paton_fit.png", global_plot, height = 4, width = 5)
 
 country_plot <- ggplot() +
   geom_point(data = paton, aes(x = pfpr, y = sma_modelled)) +
@@ -134,7 +134,7 @@ country_plot <- ggplot() +
   facet_wrap(~ country) +
   theme(strip.background = element_rect(fill = NA))
 
-ggsave("ignore/figures_tables/figS1.png", country_plot, height = 4, width = 8)
+ggsave("ignore/figures_tables/Paton_country_fit.png", country_plot, height = 4, width = 8)
 ################################################################################
 ################################################################################
 ################################################################################
@@ -150,15 +150,16 @@ prob_hosp_pd <- country_parameters %>%
 prob_hosp_plot <- ggplot(prob_hosp_pd, aes(x = ph)) +
   geom_histogram(binwidth = 0.02, col = "white", fill = "black", size = 0.01) + 
   facet_wrap(~ country) +
-  xlab("Probability hospital") +
-  xlim(0, 1) +
+  xlab("Hospitalisation probability") +
+  #xlim(0, 1) +
+  scale_x_continuous(breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1"), limits = c(0, 1)) +
   theme_bw() +
   theme(strip.background = element_rect(fill = NA),
         axis.text.y = element_blank(),
         axis.title.y = element_blank(),
         axis.ticks.y = element_blank())
 
-ggsave("ignore/figures_tables/figS_prob_hosp.png", prob_hosp_plot, height = 3, width = 8)
+#ggsave("ignore/figures_tables/figS_prob_hosp.png", prob_hosp_plot, height = 3, width = 8)
 
 # Table
 prob_hosp_table <- prob_hosp_pd %>%
@@ -196,11 +197,15 @@ spd <- community_hosp %>%
 community_hospital_burden_plot <- ggplot(spd, aes(x = pfpr, y = inc, fill = type)) +
   geom_area() +
   scale_fill_manual(name = "", values = c("#619cff", "#00c19f")) +
-  ylab("Annual incidence per 1000 children") +
+  ylab("Annual incidence\nper 1000 children") +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   theme_bw()
 
-ggsave("ignore/figures_tables/fig_community_hospital_burden_plot.png", community_hospital_burden_plot, height = 3, width = 5)
+hospital_summary <- (prob_hosp_plot | community_hospital_burden_plot) + 
+  plot_layout(widths = c(3.2, 1)) + 
+  plot_annotation(tag_levels = "A")
+
+ggsave("ignore/figures_tables/hospital_summary.png", hospital_summary, height = 3, width = 10, scale = 0.8)
 ################################################################################
 ################################################################################
 ################################################################################
@@ -227,7 +232,7 @@ median_distance_global_fit <- all_parameters_median %>%
 distance_plot <- ggplot() +
   geom_line(data = draw_distance_global_fit, aes(x = distance, y = p_hospital, group = sample), alpha = 0.25, col = "#00798c") +
   geom_line(data = median_distance_global_fit, aes(x = distance, y = p_hospital), col = "#edae49", size = 1) +
-  ylab("Probability hospital | symptoms recognised") +
+  ylab("Hospitalisation probability") +
   xlab("Distance") +
   theme_bw()
 
@@ -236,25 +241,3 @@ ggsave("ignore/figures_tables/figS_distance.png", distance_plot, height = 4, wid
 ################################################################################
 ################################################################################
 
-################################################################################
-### No adjustment demonstration ################################################
-################################################################################
-
-# Assume all symptomatic are severe and malaria-attributable, all severe are recognised and all recognised go to hospital
-median_global_fit_no_adj <- all_parameters_median %>%
-  left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         severe_inc = prev_to_inc(prevalence = sma_prevalence, recovery_rate = 1 / 4, py = 1000))
-
-# Plotting 
-global_plot_no_adj <- ggplot() +
-  geom_point(data = paton, aes(x = pfpr, y = sma_modelled)) +
-  geom_line(data = median_global_fit_no_adj, aes(x = pfpr, y = severe_inc, col = model), col = "#edae49", size = 1) +
-  xlab(expression(~italic(Pf)~Pr[2-10])) +
-  ylab("Annual hospitalised incidence per 1000 children") +
-  theme_bw()
-
-ggsave("ignore/figures_tables/figS_no_adjustment.png", global_plot_no_adj, height = 4, width = 4)
-################################################################################
-################################################################################
-################################################################################

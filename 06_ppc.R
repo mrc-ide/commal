@@ -1,4 +1,4 @@
-### PPC - posterior predictive checks against DHS and Paton data ################
+### PPC - posterior predictive checks against DHS and Paton data ###############
 
 library(dplyr)
 library(tidyr)
