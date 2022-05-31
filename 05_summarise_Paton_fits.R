@@ -165,6 +165,13 @@ ph1 <- prob_hosp_plot(filter(prob_hosp_pd, country == "Kenya"), "Kenya")
 ph2 <- prob_hosp_plot(filter(prob_hosp_pd, country == "Tanzania"),"Tanzania")
 ph3 <- prob_hosp_plot(filter(prob_hosp_pd, country == "Uganda"), "Uganda")
 
+ph4 <- ggplot(prob_hosp_pd, aes(x = country, y = 100 * ph)) +
+  geom_boxplot(coef = 100) + 
+  xlab("") +
+  ylab("% hospitalised") +
+  ylim(0, 100) +
+  theme_bw()
+
 ################################################################################
 ################################################################################
 ################################################################################
@@ -201,10 +208,13 @@ community_hospital_burden_plot <- ggplot(spd, aes(x = pfpr, y = inc, fill = type
         legend.title = element_blank()) +
   ggtitle("")
 
-hospital_summary <- ((ph1 / ph3) | ( ph3 / community_hospital_burden_plot)) + 
+#hospital_summary <- ((ph1 / ph3) | ( ph3 / community_hospital_burden_plot)) + 
+ # plot_annotation(tag_levels = "A")
+
+hospital_summary <- ph4 | community_hospital_burden_plot + 
   plot_annotation(tag_levels = "A")
 
-ggsave("ignore/figures_tables/hospital_summary.png", hospital_summary, height = 6, width = 7, scale = 0.8)
+ggsave("ignore/figures_tables/hospital_summary.png", hospital_summary, height = 3, width = 7, scale = 0.8)
 ################################################################################
 ################################################################################
 ################################################################################

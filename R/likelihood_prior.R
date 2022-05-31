@@ -25,8 +25,13 @@ r_loglike <- function(params, data, misc) {
                                       pfpr_beta = params["pfpr_beta"],
                                       shift = params["shift"])
     
+    sa_input <- 0
+    if(misc$adjust_sa){
+      sa_input <- chronic[paton_block]
+    }
+    
     hosp_inc <- cascade(sma_prevalence = prob_paton,
-                        chronic = chronic[paton_block],
+                        chronic = sa_input,
                         pfpr = data$paton[[paton_block]]$pfpr,
                         dur = params["dur"],
                         py = data$paton[[paton_block]]$py, 
@@ -35,7 +40,7 @@ r_loglike <- function(params, data, misc) {
                         distance = data$paton[[paton_block]]$distance)
     
     loglike <- sum(dnbinom(data$paton[[paton_block]]$sma, mu = hosp_inc, size = params["overdispersion"], log = T)) +
-      sum(dbinom(data$dhs[[paton_block]]$chronic_anaemia, 1, chronic[paton_block], log = T))
+      sum(dbinom(data$dhs[[paton_block]]$sa[data$dhs[[paton_block]]$microscopy == "negative"], 1, chronic[paton_block], log = T))
   }
   
   if(block == (n_countries + 4)){
@@ -50,7 +55,7 @@ r_logprior <- function(params, misc){
   ret <- 
     sum(dnorm(params[c("global_capacity", "shift", "pfpr_beta")], 0, 10, log = TRUE)) +
     # Setting duration with a mean of 14 days and upper 95% quantile of 60 days
-      # Probably a minimum bound: Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
+    # Probably a minimum bound: Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
     sum(dlnorm(params["dur"], log(14), 0.7425, log = TRUE)) +
     #sum(dgamma(params["dur"], shape = 0.71, rate = 0.0507, log = TRUE)) +
     #sum(dgamma(params["dur"], shape = 1.546, rate = 0.335, log = TRUE)) +
