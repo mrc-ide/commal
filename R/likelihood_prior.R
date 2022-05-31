@@ -49,13 +49,30 @@ r_loglike <- function(params, data, misc) {
 r_logprior <- function(params, misc){
   ret <- 
     sum(dnorm(params[c("global_capacity", "shift", "pfpr_beta")], 0, 10, log = TRUE)) +
-    # Probably a minimum bound: Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
-    sum(dgamma(params["dur"], shape = 1.546, rate = 0.335, log = TRUE)) +
+    # Setting duration with a mean of 14 days and upper 95% quantile of 60 days
+      # Probably a minimum bound: Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
+    sum(dlnorm(params["dur"], log(14), 0.7425, log = TRUE)) +
+    #sum(dgamma(params["dur"], shape = 0.71, rate = 0.0507, log = TRUE)) +
+    #sum(dgamma(params["dur"], shape = 1.546, rate = 0.335, log = TRUE)) +
     sum(dunif(params[grepl("chronic", names(params))], 0, 1, log = TRUE)) +
     sum(dlnorm(params["overdispersion"], 0, 5, log = TRUE)) +
     sum(dunif(params["group_sd"], 0, 10000, log = TRUE)) +
     sum(dnorm(params[grepl("ccc", names(params))], 0, 10, log = TRUE)) +
-    sum(dnorm(params[grepl("hosp_", names(params))], 0, 1.4, log = TRUE)) +
+    sum(dnorm(params[grepl("hosp_", names(params))], 0, 1.5, log = TRUE)) +
+    sum(dnorm(params["distance_beta"], 0, 10, log = TRUE))
+  return(ret)
+}
+
+r_logprior_dur <- function(params, misc){
+  ret <- 
+    sum(dnorm(params[c("global_capacity", "shift", "pfpr_beta")], 0, 10, log = TRUE)) +
+    # Setting duration with a mean of 14 days and upper 95% quantile of ~365 days
+    sum(dlnorm(params["dur"], log(14), 1.66, log = TRUE)) +
+    sum(dunif(params[grepl("chronic", names(params))], 0, 1, log = TRUE)) +
+    sum(dlnorm(params["overdispersion"], 0, 5, log = TRUE)) +
+    sum(dunif(params["group_sd"], 0, 10000, log = TRUE)) +
+    sum(dnorm(params[grepl("ccc", names(params))], 0, 10, log = TRUE)) +
+    sum(dnorm(params[grepl("hosp_", names(params))], 0, 1.5, log = TRUE)) +
     sum(dnorm(params["distance_beta"], 0, 10, log = TRUE))
   return(ret)
 }

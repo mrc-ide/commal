@@ -101,8 +101,7 @@ fig1a <- ggplot() +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
   ylab(expression(MSA[0.5-5])) + 
   theme_bw() +
-  coord_cartesian(ylim = c(0, 0.005)) +
-  theme(aspect.ratio = 1)
+  coord_cartesian(ylim = c(0, 0.005))
 
 ### Figure 1b, fit to country data ###
 breaks <- function(){
@@ -155,5 +154,6 @@ cp3 <- country_plot(filter(country_median, country %in% c3),
                     filter(country_data, country %in% c3))
 
 fig1 <- (fig1a / cp2 ) | (cp1 / cp3)
+
 
 ggsave("ignore/figures_tables/dhs_fit.png", fig1, width = 9, height = 7, scale = 0.75)

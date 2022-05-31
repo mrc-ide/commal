@@ -45,6 +45,23 @@ cor <- apply(combn(p, 2), 2, function(x){
 correlation_plots <- patchwork::wrap_plots(cor) + plot_layout(guides = "collect")
 
 ggsave("ignore/figures_tables/figS_correlation_plots.png", correlation_plots, height = 10, width = 24)
+
+# Correlations between dur and hosp
+cp1 <- plot_cor(mcmc, "dur", "hosp_Kenya")  +
+  ylab("Hospitalisation\nparameter") +
+  xlab("Duration (days)") + 
+  ggtitle("Kenya")
+cp2 <- plot_cor(mcmc, "dur", "hosp_Tanzania")  +
+  ylab("Hospitalisation\nparameter") +
+  xlab("Duration (days)") + 
+  ggtitle("Tanzania")
+cp3 <- plot_cor(mcmc, "dur", "hosp_Uganda")  +
+  ylab("Hospitalisation\nparameter") +
+  xlab("Duration (days)") + 
+  ggtitle("Uganda")
+cp <- cp1 | cp2 | cp3
+ggsave("ignore/figures_tables/dur_hosp_correlation.png", cp, height = 3, width = 12)
+
 ################################################################################
 
 

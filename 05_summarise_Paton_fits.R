@@ -147,29 +147,23 @@ prob_hosp_pd <- country_parameters %>%
   mutate(ph = p(exp(hosp)))
 
 # Plotting
-prob_hosp_plot <- ggplot(prob_hosp_pd, aes(x = ph)) +
+prob_hosp_plot <- function(prob_hosp_pd, title){
+  ggplot(prob_hosp_pd, aes(x = ph)) +
   geom_histogram(binwidth = 0.02, col = "white", fill = "black", size = 0.01) + 
-  facet_wrap(~ country) +
+  #facet_wrap(~ country) +
   xlab("Hospitalisation probability") +
-  #xlim(0, 1) +
+  ylab(" \n ") +
   scale_x_continuous(breaks = c(0, 0.5, 1), labels = c("0", "0.5", "1"), limits = c(0, 1)) +
   theme_bw() +
   theme(strip.background = element_rect(fill = NA),
         axis.text.y = element_blank(),
         axis.title.y = element_blank(),
-        axis.ticks.y = element_blank())
-
-#ggsave("ignore/figures_tables/figS_prob_hosp.png", prob_hosp_plot, height = 3, width = 8)
-
-# Table
-prob_hosp_table <- prob_hosp_pd %>%
-  group_by(country) %>%
-  summarise(
-    probability_hospitall = quantile(ph, 0.025),
-    probability_hospital = median(ph),
-    probability_hospitalu = quantile(ph, 0.975))
-
-write.csv(prob_hosp_table, "ignore/figures_tables/probability_hospital.csv", row.names = FALSE)
+        axis.ticks.y = element_blank()) +
+    ggtitle(title)
+}
+ph1 <- prob_hosp_plot(filter(prob_hosp_pd, country == "Kenya"), "Kenya")
+ph2 <- prob_hosp_plot(filter(prob_hosp_pd, country == "Tanzania"),"Tanzania")
+ph3 <- prob_hosp_plot(filter(prob_hosp_pd, country == "Uganda"), "Uganda")
 
 ################################################################################
 ################################################################################
@@ -199,13 +193,18 @@ community_hospital_burden_plot <- ggplot(spd, aes(x = pfpr, y = inc, fill = type
   scale_fill_manual(name = "", values = c("#619cff", "#00c19f")) +
   ylab("Annual incidence\nper 1000 children") +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = c(0.2, 0.85),
+        legend.text = element_text(size = 8),
+        legend.key.size = unit(0.2, "cm"),
+        legend.margin = margin(0, 0, 0, 0, unit = "cm"),
+        legend.title = element_blank()) +
+  ggtitle("")
 
-hospital_summary <- (prob_hosp_plot | community_hospital_burden_plot) + 
-  plot_layout(widths = c(3.2, 1)) + 
+hospital_summary <- ((ph1 / ph3) | ( ph3 / community_hospital_burden_plot)) + 
   plot_annotation(tag_levels = "A")
 
-ggsave("ignore/figures_tables/hospital_summary.png", hospital_summary, height = 3, width = 10, scale = 0.8)
+ggsave("ignore/figures_tables/hospital_summary.png", hospital_summary, height = 6, width = 7, scale = 0.8)
 ################################################################################
 ################################################################################
 ################################################################################

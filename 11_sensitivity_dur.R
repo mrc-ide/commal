@@ -103,7 +103,7 @@ parallel::clusterExport(cl, c("rlogit", "prev_to_inc", "dgamma2",
 mcmc <- run_mcmc(data = data_list,
                  df_params = df_params,
                  loglike = r_loglike,
-                 logprior = r_logprior,
+                 logprior = r_logprior_dur,
                  misc = misc,
                  burnin = 5000,
                  samples = 5000,
@@ -111,7 +111,7 @@ mcmc <- run_mcmc(data = data_list,
                  chains = 4,
                  cluster = cl)
 parallel::stopCluster(cl)
-saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc.rds")
+saveRDS(mcmc, "ignore/prob_hosp/mcmc_fits/mcmc_sensitivity_dur.rds")
 #plot_par(mcmc)
 
 ################################################################################
@@ -147,7 +147,7 @@ parameters <- global_parameters %>%
   left_join(hospital_parameters, by = c("country", "sample")) %>%
   select(country, sample, everything())
 
-saveRDS(parameters, "ignore/prob_hosp/mcmc_fits/parameters.rds")
+saveRDS(parameters, "ignore/prob_hosp/mcmc_fits/parameters_sensitivity_dur.rds")
 ################################################################################
 ################################################################################
 ################################################################################
