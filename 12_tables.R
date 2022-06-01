@@ -45,11 +45,11 @@ write.csv(prob_hosp_table, "ignore/figures_tables/probability_hospital.csv", row
 ################################################################################
 ### Parameter summary tables ###################################################
 ################################################################################
-
 ## Global parameters
 global_summary <- out %>%
+  # We just need one country ad global parameters are replicated for each
+  filter(country == "Kenya") %>%
   select(-c(country, chronic, hosp, country_capacity)) %>%
-  unique() %>%
   select(-sample) %>%
   pivot_longer(cols = -run, names_to = "par", values_to = "x") %>%
   group_by(run, par) %>%

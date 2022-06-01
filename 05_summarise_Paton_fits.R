@@ -135,6 +135,10 @@ country_plot <- ggplot() +
   theme(strip.background = element_rect(fill = NA))
 
 ggsave("ignore/figures_tables/Paton_country_fit.png", country_plot, height = 4, width = 8)
+
+median_global_fit$pfpr[which.min(abs(median_global_fit$hospital - 0.5))]
+median_global_fit$pfpr[which.min(abs(median_global_fit$hospital - 1))]
+median_global_fit$pfpr[which.min(abs(median_global_fit$hospital - 1.5))]
 ################################################################################
 ################################################################################
 ################################################################################
@@ -211,7 +215,7 @@ community_hospital_burden_plot <- ggplot(spd, aes(x = pfpr, y = inc, fill = type
 #hospital_summary <- ((ph1 / ph3) | ( ph3 / community_hospital_burden_plot)) + 
  # plot_annotation(tag_levels = "A")
 
-hospital_summary <- ph4 | community_hospital_burden_plot + 
+hospital_summary <- (ph4 | community_hospital_burden_plot) + 
   plot_annotation(tag_levels = "A")
 
 ggsave("ignore/figures_tables/hospital_summary.png", hospital_summary, height = 3, width = 7, scale = 0.8)
