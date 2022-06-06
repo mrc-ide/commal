@@ -11,17 +11,18 @@ dhs_sma <- dhs_data_raw  %>%
   filter(
     microscopy %in% c("negative", "positive"),
     anemia_level %in% c("non_severe", "severe"),
-    #fever %in% c("yes", "no"),
     !is.na(prevalence)) %>%
   mutate(
-    # Non-malarial anemia / Chronic malaria: see page 13 of doi:10.1111/tmi.12313
+    # Non-malarial anaemia / Chronic malaria: see page 13 of doi:10.1111/tmi.12313
     sa = ifelse(anemia_level == "severe", 1, 0),
     sma  = ifelse(anemia_level == "severe" & microscopy == "positive", 1, 0),
-    sma_fever  = ifelse(anemia_level == "severe" & microscopy == "positive" & fever == "yes", 1, 0)
+    sma_fever  = ifelse(anemia_level == "severe" & microscopy == "positive" & fever == "yes", 1, 0),
+    sma_rdt = case_when(anemia_level == "severe" & rdt == "positive" ~ 1,
+                        rdt == "negative" ~ 0,
+                        anemia_level == "non_severe" ~ 0)
   ) %>%
-  filter(!is.na(sma)) %>%
   rename(pfpr = prevalence) %>%
-  dplyr::select(iso, country, cluster, survey_year, year, pfpr, microscopy, hb, sma, sma_fever, sa) %>%
+  dplyr::select(iso, country, cluster, survey_year, year, pfpr, microscopy, hb, sma, sma_fever, sa, sma_rdt) %>%
   mutate(countryn = as.numeric(factor(country, levels = country_levels)))
 
 nrow(dhs_sma)
