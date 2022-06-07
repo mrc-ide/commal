@@ -22,7 +22,7 @@ dhs_sma <- dhs_data_raw  %>%
                         anemia_level == "non_severe" ~ 0)
   ) %>%
   rename(pfpr = prevalence) %>%
-  dplyr::select(iso, country, cluster, survey_year, year, pfpr, microscopy, hb, sma, sma_fever, sa, sma_rdt) %>%
+  dplyr::select(iso, country, cluster, survey_year, year, pfpr, microscopy, hb, sma, sma_fever, sa, sma_rdt, rdt) %>%
   mutate(countryn = as.numeric(factor(country, levels = country_levels)))
 
 nrow(dhs_sma)

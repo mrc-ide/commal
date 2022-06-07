@@ -27,7 +27,9 @@ dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
   select(-sma) %>%
   filter(!is.na(sma_rdt)) %>%
   rename(sma = sma_rdt) %>%
-  select(pfpr, sma, sa, microscopy, country) %>%
+  mutate(diagnostic = rdt) %>%
+  select(pfpr, sma, sa, diagnostic, country) %>%
+  filter(diagnostic %in% c("negative", "positive")) %>%
   split(.$country)
 cn <- as.character(sapply(dhs_sma, function(x)x$country[1]))
 names(dhs_sma) <- cn
@@ -39,7 +41,7 @@ n_countries <- length(dhs_sma)
 
 # Data input list for MCMC
 data_list <- list(
-  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "sma", "sa", "microscopy")]),
+  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "sma", "sa", "diagnostic")]),
   paton = lapply(paton, function(x) x[,c("pfpr", "distance", "py", "sma")])
 )
 

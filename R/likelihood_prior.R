@@ -40,7 +40,7 @@ r_loglike <- function(params, data, misc) {
                         distance = data$paton[[paton_block]]$distance)
     
     loglike <- sum(dnbinom(data$paton[[paton_block]]$sma, mu = hosp_inc, size = params["overdispersion"], log = T)) +
-      sum(dbinom(data$dhs[[paton_block]]$sa[data$dhs[[paton_block]]$microscopy == "negative"], 1, chronic[paton_block], log = T))
+      sum(dbinom(data$dhs[[paton_block]]$sa[data$dhs[[paton_block]]$diagnostic == "negative"], 1, chronic[paton_block], log = T))
   }
   
   if(block == (n_countries + 4)){
