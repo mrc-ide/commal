@@ -29,8 +29,8 @@ rtss_prediction <- rtss %>%
   mutate(chronic = replace_na(chronic, mean(chronic, na.rm = TRUE)), 
          hosp = replace_na(hosp, mean(hosp, na.rm = TRUE)),
          country_capacity = replace_na(country_capacity, 0)) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         malaria_attributable_sma = malaria_attributable(sma_prevalence, chronic = chronic, pfpr = pfpr),
+  mutate(masa_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         malaria_attributable_sma = malaria_attributable(masa_prevalence, chronic = chronic, pfpr = pfpr),
          as_malaria_attributable_sma = sma_prev_age_standardise(malaria_attributable_sma, age_out_lower  = 5, age_out_upper = 17),
          community = prev_to_inc(as_malaria_attributable_sma, recovery_rate = 1 / dur, py = py),
          hospital = hospitalised(community, hosp, distance_beta, 0),

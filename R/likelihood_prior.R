@@ -11,7 +11,7 @@ r_loglike <- function(params, data, misc) {
                                     pfpr_beta = params["pfpr_beta"],
                                     shift = params["shift"])
     
-    loglike <- sum(dbinom(data$dhs[[block]]$sma, 1, prob_dhs, log = T))
+    loglike <- sum(dbinom(data$dhs[[block]]$masa, 1, prob_dhs, log = T))
   }
   
   if(block %in% (n_countries + 1):(n_countries + 3)){
@@ -30,7 +30,7 @@ r_loglike <- function(params, data, misc) {
       sa_input <- chronic[paton_block]
     }
     
-    hosp_inc <- cascade(sma_prevalence = prob_paton,
+    hosp_inc <- cascade(masa_prevalence = prob_paton,
                         chronic = sa_input,
                         pfpr = data$paton[[paton_block]]$pfpr,
                         dur = params["dur"],
@@ -57,8 +57,6 @@ r_logprior <- function(params, misc){
     # Setting duration with a mean of 14 days and upper 95% quantile of 60 days
     # Probably a minimum bound: Mean 4.61 of: from Mousa (2020) supplement data S1: filter(SMA = 1, age between 3 months and 9 years).
     sum(dlnorm(params["dur"], log(14), 0.7425, log = TRUE)) +
-    #sum(dgamma(params["dur"], shape = 0.71, rate = 0.0507, log = TRUE)) +
-    #sum(dgamma(params["dur"], shape = 1.546, rate = 0.335, log = TRUE)) +
     sum(dunif(params[grepl("chronic", names(params))], 0, 1, log = TRUE)) +
     sum(dlnorm(params["overdispersion"], 0, 5, log = TRUE)) +
     sum(dunif(params["group_sd"], 0, 10000, log = TRUE)) +

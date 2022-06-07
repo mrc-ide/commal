@@ -23,26 +23,24 @@ paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
   split(.$country)
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
 
-
-
-dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
-  select(-sma) %>%
+dhs_masa <- readRDS("ignore/prob_hosp/dhs_masa.rds") %>%
+  select(-masa) %>%
   filter(!is.na(sma_fever)) %>%
-  rename(sma = sma_fever) %>%
+  rename(masa = masa_fever) %>%
   mutate(diagnostic = microscopy) %>%
-  select(pfpr, sma, sa, diagnostic, country) %>%
+  select(pfpr, masa, sa, diagnostic, country) %>%
   split(.$country)
-cn <- as.character(sapply(dhs_sma, function(x)x$country[1]))
-names(dhs_sma) <- cn
+cn <- as.character(sapply(dhs_masa, function(x)x$country[1]))
+names(dhs_masa) <- cn
 reorder <- c(paton_countries, setdiff(cn, paton_countries))
-dhs_sma <- dhs_sma[reorder]
+dhs_masa <- dhs_masa[reorder]
 
-country_names <- names(dhs_sma)
-n_countries <- length(dhs_sma)
+country_names <- names(dhs_masa)
+n_countries <- length(dhs_masa)
 
 # Data input list for MCMC
 data_list <- list(
-  dhs = lapply(dhs_sma, function(x) x[,c("pfpr", "sma", "sa", "diagnostic")]),
+  dhs = lapply(dhs_masa, function(x) x[,c("pfpr", "masa", "sa", "diagnostic")]),
   paton = lapply(paton, function(x) x[,c("pfpr", "distance", "py", "sma")])
 )
 

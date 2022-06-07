@@ -9,8 +9,3 @@ gompertz <- function(pfpr, global_capacity, country_capacity, pfpr_beta, shift){
 rlogit <- function(log_odds){
   1 / (1 + exp(-log_odds))
 }
-
-dic <- function(loglikelihood){
-  d <- -2 * loglikelihood
-  0.5 * var(d) + mean(d)
-}

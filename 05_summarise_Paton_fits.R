@@ -59,8 +59,8 @@ all_parameters_median <- all_parameters %>%
 # Median
 median_country_fit <- country_parameters_median %>%
   left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         hospital = cascade(sma_prevalence = sma_prevalence,
+  mutate(masa_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         hospital = cascade(masa_prevalence = masa_prevalence,
                             pfpr = pfpr,
                             chronic = chronic,
                             dur = dur,
@@ -74,8 +74,8 @@ draw_country_fit <- country_parameters %>%
   slice_sample(n = ndraw) %>%
   ungroup() %>%
   left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         hospital = cascade(sma_prevalence = sma_prevalence,
+  mutate(masa_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         hospital = cascade(masa_prevalence = masa_prevalence,
                             pfpr = pfpr,
                             chronic = chronic,
                             dur = dur,
@@ -86,8 +86,8 @@ draw_country_fit <- country_parameters %>%
 
 median_global_fit <- all_parameters_median %>%
   left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         hospital = cascade(sma_prevalence = sma_prevalence,
+  mutate(masa_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         hospital = cascade(masa_prevalence = masa_prevalence,
                             pfpr = pfpr,
                             chronic = chronic,
                             dur = dur,
@@ -100,8 +100,8 @@ median_global_fit <- all_parameters_median %>%
 draw_global_fit <- all_parameters %>%
   slice_sample(n = ndraw) %>%
   left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         hospital = cascade(sma_prevalence = sma_prevalence,
+  mutate(masa_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         hospital = cascade(masa_prevalence = masa_prevalence,
                             pfpr = pfpr,
                             chronic = chronic,
                             dur = dur,
@@ -186,8 +186,8 @@ ph4 <- ggplot(prob_hosp_pd, aes(x = country, y = 100 * ph)) +
 
 community_hosp <- all_parameters_median %>% 
   left_join(data.frame(pfpr = pfpr_range), by = character()) %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         ma_sma = malaria_attributable(sma_prevalence, chronic_sa_prevalence = chronic, pfpr = pfpr),
+  mutate(masa_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         ma_sma = malaria_attributable(masa_prevalence, chronic_sa_prevalence = chronic, pfpr = pfpr),
          as_ma_sma = sma_prev_age_standardise(ma_sma),
          Community = prev_to_inc(as_ma_sma, recovery_rate = 1 / dur),
          Hospital = hospitalised(Community, hosp = hosp,

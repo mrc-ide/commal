@@ -42,9 +42,9 @@ hospitalised <- function(incidence, hosp, distance_beta, distance){
 }
 
 # Wrapper for the cascade from prevalence to hospitalised incidence
-cascade <- function(sma_prevalence, chronic, pfpr, dur, py, 
+cascade <- function(masa_prevalence, chronic, pfpr, dur, py, 
                     hosp, distance_beta, distance){
-  sma_prevalence %>%
+  masa_prevalence %>%
     malaria_attributable(chronic_sa_prevalence = chronic,
                          pfpr = pfpr) %>%
     sma_prev_age_standardise() %>%

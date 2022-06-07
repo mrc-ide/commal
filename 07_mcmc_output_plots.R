@@ -21,7 +21,7 @@ re_plot <- ggplot(parameters, aes(x = country, fill = country, y = country_capac
   coord_flip() +
   theme_bw()
 
-ggsave("ignore/figures_tables/figS_random_effects.png", re_plot, height = 4, width = 6)
+ggsave("ignore/figures_tables/figS_random_effects.png", re_plot, height = 5, width = 6)
 ################################################################################
 
 ### Parameter plots ############################################################

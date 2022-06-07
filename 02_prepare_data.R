@@ -5,29 +5,34 @@ library(dplyr)
 
 ### Format DHS data ############################################################
 dhs_data_raw <- readRDS("ignore/dhs/processed_data/processed_dhs.RDS")
-country_levels <- unique(dhs_data_raw$country)
 
-dhs_sma <- dhs_data_raw  %>%
+dhs_masa <- dhs_data_raw  %>%
   filter(
     microscopy %in% c("negative", "positive"),
-    anemia_level %in% c("non_severe", "severe"),
+    !is.na(hb),
     !is.na(prevalence)) %>%
   mutate(
-    # Non-malarial anaemia / Chronic malaria: see page 13 of doi:10.1111/tmi.12313
+    # Severe anaemia
     sa = ifelse(anemia_level == "severe", 1, 0),
-    sma  = ifelse(anemia_level == "severe" & microscopy == "positive", 1, 0),
-    sma_fever  = ifelse(anemia_level == "severe" & microscopy == "positive" & fever == "yes", 1, 0),
-    sma_rdt = case_when(anemia_level == "severe" & rdt == "positive" ~ 1,
+    # Malaria and severe anaemia
+    masa  = ifelse(anemia_level == "severe" & microscopy == "positive", 1, 0),
+    # Malaria and severe anaemia and fevere
+    masa_fever  = ifelse(anemia_level == "severe" & microscopy == "positive" & fever == "yes", 1, 0),
+    # Malaria and severe anaemia, RDT defined
+    masa_rdt = case_when(anemia_level == "severe" & rdt == "positive" ~ 1,
                         rdt == "negative" ~ 0,
                         anemia_level == "non_severe" ~ 0)
   ) %>%
   rename(pfpr = prevalence) %>%
-  dplyr::select(iso, country, cluster, survey_year, year, pfpr, microscopy, hb, sma, sma_fever, sa, sma_rdt, rdt) %>%
-  mutate(countryn = as.numeric(factor(country, levels = country_levels)))
+  dplyr::select(iso, country, cluster, year,
+                pfpr, microscopy, hb, masa, masa_fever, sa, masa_rdt, rdt)
 
-nrow(dhs_sma)
+nrow(dhs_masa)
+length(unique(dhs_masa$country))
+tapply(dhs_masa$masa, dhs_masa$country, sum)
+tapply(dhs_masa$masa, dhs_masa$country, mean)
 
-saveRDS(dhs_sma, "ignore/prob_hosp/dhs_sma.rds")
+saveRDS(dhs_masa, "ignore/prob_hosp/dhs_masa.rds")
 ################################################################################
 
 ### Estimate expected number of SMA cases (in lieu of full dataset) ############

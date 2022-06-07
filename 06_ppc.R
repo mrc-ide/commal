@@ -9,9 +9,9 @@ library(patchwork)
 source("R/model_functions.R")
 source("R/cascade.R")
 # Load data and add PPC grouping variables
-dhs_sma <- readRDS("ignore/prob_hosp/dhs_sma.rds") %>%
+dhs_masa <- readRDS("ignore/prob_hosp/dhs_masa.rds") %>%
   mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country)) %>%
-  select(country, pfpr, sma) %>%
+  select(country, pfpr, masa) %>%
   mutate(pfprg = cut(pfpr, c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 1), include.lowest = T, labels = c("0-1", "0.1-0.2", "0.2-0.3", "0.3-0.4", "0.4-0.5", "0.5+")))
 
 paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
@@ -26,12 +26,12 @@ parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
 predict <- parameters %>%
   slice_sample(n = 200) %>%
   select(sample, country, global_capacity, country_capacity, shift, pfpr_beta) %>%
-  left_join(dhs_sma, by = "country") %>%
+  left_join(dhs_masa, by = "country") %>%
   mutate(predict = pmap_dbl(select(., formalArgs(gompertz)), gompertz)) %>%
   filter(!is.na(predict))
 
 pd1 <- predict %>%
-  summarise(ml = mean(sma))
+  summarise(ml = mean(masa))
 
 ppc1 <- ggplot() +
   geom_histogram(data = predict, aes(x = predict), fill = "darkblue", bins = 30) +
@@ -41,7 +41,7 @@ ppc1 <- ggplot() +
 
 pd2 <- predict %>%
   group_by(country) %>%
-  summarise(ml = mean(sma))
+  summarise(ml = mean(masa))
 
 ppc2 <- ggplot() +
   geom_histogram(data = predict, aes(x = predict), fill = "darkblue", bins = 30) +
@@ -53,7 +53,7 @@ ppc2 <- ggplot() +
 
 pd3 <- predict %>%
   group_by(pfprg) %>%
-  summarise(ml = mean(sma))
+  summarise(ml = mean(masa))
 
 ppc3 <- ggplot() +
   geom_histogram(data = predict, aes(x = predict), fill = "darkblue", bins = 30) +
@@ -70,8 +70,8 @@ predict2 <- parameters %>%
   ungroup() %>%
   filter(country %in% unique(paton$country)) %>%
   left_join(paton, by = "country")  %>%
-  mutate(sma_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
-         predict = cascade(sma_prevalence = sma_prevalence,
+  mutate(masa_prevalence = pmap_dbl(select(., formalArgs(gompertz)), gompertz),
+         predict = cascade(masa_prevalence = masa_prevalence,
                            pfpr = pfpr,
                             chronic = chronic,
                             dur = dur,
