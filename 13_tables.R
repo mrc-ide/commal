@@ -33,9 +33,9 @@ prob_hosp <- out %>%
     probability_hospitalu = quantile(ph, 0.975))
 
 prob_hosp_table <- prob_hosp %>%
-  mutate(formatted = paste0(round(probability_hospital, 2),
-                            " (", round(probability_hospitall, 2),
-                            ", ", round(probability_hospitalu, 2), ")")) %>%
+  mutate(formatted = paste0(100 * round(probability_hospital, 2),
+                            " (", 100 * round(probability_hospitall, 2),
+                            ", ", 100 * round(probability_hospitalu, 2), ")")) %>%
   select(run, country, formatted) %>%
   pivot_wider(country, names_from = run, values_from = formatted)
   

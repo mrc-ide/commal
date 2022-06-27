@@ -9,7 +9,6 @@ library(tidyr)
 
 # Load functions
 source("R/prevalence_incidence.R")
-source("R/gamma.R")
 source("R/odds_probability.R")
 source("R/paton_fits.R")
 source("R/model_functions.R")
@@ -103,7 +102,7 @@ df_params <- bind_rows(global_params, chronic_params, hosp_params, country_param
 
 # Run MCMC
 cl <- parallel::makeCluster(4)
-parallel::clusterExport(cl, c("rlogit", "prev_to_inc", "dgamma2",
+parallel::clusterExport(cl, c("rlogit", "prev_to_inc",
                               "cascade", "%>%", "malaria_attributable",
                               "sma_prev_age_standardise", "hospitalised"))
 mcmc <- run_mcmc(data = data_list,
@@ -111,8 +110,8 @@ mcmc <- run_mcmc(data = data_list,
                  loglike = r_loglike,
                  logprior = r_logprior,
                  misc = misc,
-                 burnin = 50000,
-                 samples = 50000,
+                 burnin = 30000,
+                 samples = 30000,
                  rungs = 1,
                  chains = 4,
                  cluster = cl)
