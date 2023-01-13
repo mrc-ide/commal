@@ -27,7 +27,7 @@ dhs_masa <- readRDS("ignore/prob_hosp/dhs_masa.rds") %>%
   filter(!is.na(masa_rdt)) %>%
   rename(masa = masa_rdt) %>%
   mutate(diagnostic = rdt) %>%
-  select(pfpr, masa, sa, diagnostic, country) %>%
+  select(pfpr, masa, sa, diagnostic, country, weight) %>%
   filter(diagnostic %in% c("negative", "positive")) %>%
   split(.$country)
 cn <- as.character(sapply(dhs_masa, function(x)x$country[1]))
@@ -40,7 +40,7 @@ n_countries <- length(dhs_masa)
 
 # Data input list for MCMC
 data_list <- list(
-  dhs = lapply(dhs_masa, function(x) x[,c("pfpr", "masa", "sa", "diagnostic")]),
+  dhs = lapply(dhs_masa, function(x) x[,c("pfpr", "masa", "sa", "diagnostic", "weight")]),
   paton = lapply(paton, function(x) x[,c("pfpr", "distance", "py", "sma")])
 )
 

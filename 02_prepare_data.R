@@ -5,6 +5,8 @@ library(dplyr)
 
 ### Format DHS data ############################################################
 dhs_data_raw <- readRDS("ignore/dhs/processed_data/processed_dhs.RDS")
+ 
+1 - (mean(is.na(dhs_data_raw$hb) | (is.na(dhs_data_raw$rdt) & is.na(dhs_data_raw$microscopy))))
 
 dhs_masa <- dhs_data_raw  %>%
   filter(
@@ -21,16 +23,22 @@ dhs_masa <- dhs_data_raw  %>%
     # Malaria and severe anaemia, RDT defined
     masa_rdt = case_when(anemia_level == "severe" & rdt == "positive" ~ 1,
                         rdt == "negative" ~ 0,
-                        anemia_level == "non_severe" ~ 0)
+                        anemia_level == "non_severe" ~ 0),
+    # Sample weight
+    weight = hh_sample_weight / 10^6
   ) %>%
   rename(pfpr = prevalence) %>%
-  dplyr::select(iso, country, cluster, year,
+  dplyr::select(iso, country, cluster, year, weight,
                 pfpr, microscopy, hb, masa, masa_fever, sa, masa_rdt, rdt)
 
 nrow(dhs_masa)
 length(unique(dhs_masa$country))
 tapply(dhs_masa$masa, dhs_masa$country, sum)
 tapply(dhs_masa$masa, dhs_masa$country, mean)
+
+round(100 * weighted.mean(dhs_masa$sa, dhs_masa$weight), 4)
+round(100 * weighted.mean(dhs_masa$microscopy == "positive", dhs_masa$weight), 3)
+round(100 * weighted.mean(dhs_masa$masa, dhs_masa$weight), 4)
 
 saveRDS(dhs_masa, "ignore/prob_hosp/dhs_masa.rds")
 ################################################################################

@@ -99,7 +99,7 @@ fig1a <- ggplot() +
   geom_line(data = fit_draws, aes(x = pfpr, y = masapr, group = sample), alpha = 0.2, col = "#00798c") +
   geom_line(data = fit_median, aes(x = pfpr, y = masapr), col = "#edae49", size = 1) +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
-  ylab(expression(MSA[0.5-5])) + 
+  ylab(expression(MASA[0.5-5])) + 
   theme_bw() +
   coord_cartesian(ylim = c(0, 0.005))
 
@@ -128,7 +128,7 @@ country_plot <- function(country_median, country_draws, country_data, nc = 3){
     geom_linerange(data = country_data, aes(x = pfpr, ymin = masal, ymax = masau), col = "#2e4057") +
     geom_point(data = country_data, aes(x = pfpr, y = masa), col = "#2e4057", size = 0.75) +
     xlab(expression(~italic(Pf)~Pr[2-10])) +
-    ylab(expression(MSA[0.5-5])) + 
+    ylab(expression(MASA[0.5-5])) + 
     scale_x_continuous(breaks = breaks()) +
     theme_bw() +
     facet_wrap(~ country, ncol = nc, scales = "free") +
@@ -155,3 +155,5 @@ fig1b <- (fig1a + theme(axis.title.x = element_blank()) | cp1 + theme(axis.title
 fig1 <- (fig1b / cp2) + plot_layout(heights = c(2, 3.5))
 
 ggsave("ignore/figures_tables/dhs_fit.png", fig1, width = 9, height = 7, scale = 0.75)
+ggsave("ignore/figures_tables/dhs_fit.pdf", fig1, width = 9, height = 7, scale = 0.75)
+

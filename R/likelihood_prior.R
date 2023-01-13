@@ -11,7 +11,7 @@ r_loglike <- function(params, data, misc) {
                                     pfpr_beta = params["pfpr_beta"],
                                     shift = params["shift"])
     
-    loglike <- sum(dbinom(data$dhs[[block]]$masa, 1, prob_dhs, log = T))
+    loglike <- sum(dbinom(data$dhs[[block]]$masa, 1, prob_dhs, log = T) * data$dhs[[block]]$weight)
   }
   
   if(block %in% (n_countries + 1):(n_countries + 3)){
@@ -40,7 +40,8 @@ r_loglike <- function(params, data, misc) {
                         distance = data$paton[[paton_block]]$distance)
     
     loglike <- sum(dnbinom(data$paton[[paton_block]]$sma, mu = hosp_inc, size = params["overdispersion"], log = T)) +
-      sum(dbinom(data$dhs[[paton_block]]$sa[data$dhs[[paton_block]]$diagnostic == "negative"], 1, chronic[paton_block], log = T))
+      sum(dbinom(data$dhs[[paton_block]]$sa[data$dhs[[paton_block]]$diagnostic == "negative"], 1, chronic[paton_block], log = T) *
+            data$dhs[[paton_block]]$weight[data$dhs[[paton_block]]$diagnostic == "negative"])
   }
   
   if(block == (n_countries + 4)){

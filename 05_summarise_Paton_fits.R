@@ -123,6 +123,8 @@ global_plot <- ggplot() +
   ylim(0, 3.5)
 
 ggsave("ignore/figures_tables/Paton_fit.png", global_plot, height = 4, width = 5)
+ggsave("ignore/figures_tables/Paton_fit.pdf", global_plot, height = 4, width = 5)
+
 
 country_plot <- ggplot() +
   geom_point(data = paton, aes(x = pfpr, y = sma_modelled)) +
@@ -219,6 +221,7 @@ hospital_summary <- (ph4 | community_hospital_burden_plot) +
   plot_annotation(tag_levels = "A")
 
 ggsave("ignore/figures_tables/hospital_summary.png", hospital_summary, height = 3, width = 7, scale = 0.8)
+ggsave("ignore/figures_tables/hospital_summary.pdf", hospital_summary, height = 3, width = 7, scale = 0.8)
 ################################################################################
 ################################################################################
 ################################################################################
