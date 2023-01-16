@@ -22,7 +22,9 @@ paton <- readRDS("ignore/prob_hosp/paton_inferred.rds") %>%
   split(.$country)
 paton_countries <-  as.character(sapply(paton, function(x)x$country[1]))
 
-dhs_masa <- readRDS("ignore/prob_hosp/dhs_masa.rds") %>%
+dhs_masa_raw <- readRDS("ignore/prob_hosp/dhs_masa.rds")
+
+dhs_masa <- dhs_masa_raw %>%
   select(-masa) %>%
   filter(!is.na(masa_rdt)) %>%
   rename(masa = masa_rdt) %>%
@@ -38,10 +40,19 @@ dhs_masa <- dhs_masa[reorder]
 country_names <- names(dhs_masa)
 n_countries <- length(dhs_masa)
 
+dhs_prob_hosp <- dhs_masa_raw %>%
+  filter(country %in% paton_countries) %>%
+  filter(masa == 1, !is.na(gov_hosp)) %>%
+  group_by(country) %>%
+  summarise(n = n(),
+            h = sum(gov_hosp == "yes")) %>%
+  split(.$country)
+
 # Data input list for MCMC
 data_list <- list(
   dhs = lapply(dhs_masa, function(x) x[,c("pfpr", "masa", "sa", "diagnostic", "weight")]),
-  paton = lapply(paton, function(x) x[,c("pfpr", "distance", "py", "sma")])
+  paton = lapply(paton, function(x) x[,c("pfpr", "distance", "py", "sma")]),
+  dhs_prob_hosp = dhs_prob_hosp
 )
 
 # Helper functions for MCMC
@@ -103,7 +114,7 @@ df_params <- bind_rows(global_params, chronic_params, hosp_params, country_param
 # Run MCMC
 cl <- parallel::makeCluster(4)
 parallel::clusterExport(cl, c("rlogit", "prev_to_inc",
-                              "cascade", "%>%", "malaria_attributable",
+                              "cascade", "p_hosp", "%>%", "malaria_attributable",
                               "sma_prev_age_standardise", "hospitalised"))
 mcmc <- run_mcmc(data = data_list,
                  df_params = df_params,

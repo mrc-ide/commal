@@ -93,9 +93,11 @@ process_kr <- function(kr_data){
       household = v002,
       child_line_number = b16,
       alive = b5,
-      fever = h22) %>%
+      fever = h22,
+      no_tx = h32y, 
+      gov_hosp = h32a) %>%
     dplyr::select(country_code, cluster, household, child_line_number, 
-                  alive, fever) %>%
+                  alive, fever, no_tx, gov_hosp) %>%
     # replace codes with factor labels
     mutate_if(is.labelled, as_factor) %>%
     mutate(child_line_number = as.integer(child_line_number),

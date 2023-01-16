@@ -29,7 +29,7 @@ dhs_masa <- dhs_data_raw  %>%
   ) %>%
   rename(pfpr = prevalence) %>%
   dplyr::select(iso, country, cluster, year, weight,
-                pfpr, microscopy, hb, masa, masa_fever, sa, masa_rdt, rdt)
+                pfpr, microscopy, hb, masa, masa_fever, sa, masa_rdt, rdt, no_tx, gov_hosp)
 
 nrow(dhs_masa)
 length(unique(dhs_masa$country))
@@ -54,8 +54,8 @@ paton_data <- paton_data_raw %>%
   mutate(
     sma_n_modelled = round((sma_modelled / 1000) * py),
     sma_n_diamond = round((sma_diamond / 1000) * py),
-    distance = dist_min + ((dist_max - dist_min) / 2)) %>%
-  mutate(countryn = as.numeric(factor(country, levels = country_levels)))
+    distance = dist_min + ((dist_max - dist_min) / 2))# %>%
+  #mutate(countryn = as.numeric(factor(country, levels = country_levels)))
 
 pd <- paton_data  %>%
   mutate(site_date = paste(site, year_start, year_end)) %>%

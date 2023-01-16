@@ -39,9 +39,15 @@ r_loglike <- function(params, data, misc) {
                         distance_beta = params["distance_beta"],
                         distance = data$paton[[paton_block]]$distance)
     
+    prob_hosp <- p_hosp(hosp = country_hosp[paton_block],
+                        distance_beta = params["distance_beta"],
+                        distance = mean(data$paton[[paton_block]]$distance))
+    
     loglike <- sum(dnbinom(data$paton[[paton_block]]$sma, mu = hosp_inc, size = params["overdispersion"], log = T)) +
       sum(dbinom(data$dhs[[paton_block]]$sa[data$dhs[[paton_block]]$diagnostic == "negative"], 1, chronic[paton_block], log = T) *
-            data$dhs[[paton_block]]$weight[data$dhs[[paton_block]]$diagnostic == "negative"])
+            data$dhs[[paton_block]]$weight[data$dhs[[paton_block]]$diagnostic == "negative"]) +
+      # Include (scant) evidence from survey question on hospital seeking
+      dbinom(data$dhs_prob_hosp[[paton_block]]$h, data$dhs_prob_hosp[[paton_block]]$n, prob_hosp, log = T)
   }
   
   if(block == (n_countries + 4)){

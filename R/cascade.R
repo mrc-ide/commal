@@ -51,3 +51,9 @@ cascade <- function(masa_prevalence, chronic, pfpr, dur, py,
     prev_to_inc(recovery_rate = 1 / dur, py = py) %>%
     hospitalised(hosp = hosp, distance_beta = distance_beta, distance = distance)
 }
+
+# Probability hospitalisation for survey likelihood
+p_hosp <- function(hosp, distance_beta, distance){
+  o <- exp(hosp + distance_beta * distance)
+  o / (1 + o)
+}
