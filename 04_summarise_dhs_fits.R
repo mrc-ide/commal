@@ -7,11 +7,21 @@ library(ggplot2)
 library(patchwork)
 
 source("R/model_functions.R")
+source("R/cascade.R")
 
 ndraw <- 100
 
 dhs_masa <- readRDS("ignore/prob_hosp/dhs_masa.rds") %>%
   mutate(country = ifelse(country == "Congo Democratic Republic", "DRC", country))
+
+# Non-malaria severe anaemia prevalence
+nmsa <- dhs_masa |>
+  filter(microscopy == "negative")
+nmsa_all <- mean(nmsa$hb < 5)
+nmsa_country <- nmsa |>
+  summarise(
+    nmsa = mean(hb < 5), .by = "country"
+  )
 
 # Load fit
 parameters <- readRDS("ignore/prob_hosp/mcmc_fits/parameters.rds") %>%
@@ -26,7 +36,8 @@ fit_median <- parameters %>%
   left_join(data.frame(
     pfpr = seq(0, 0.7, 0.01)),
     by = character()) %>%
-  mutate(masapr = pmap_dbl(select(., -sample), gompertz))
+  mutate(masapr = pmap_dbl(select(., -sample), gompertz),
+         smapr = malaria_attributable(masapr, nmsa_all, pfpr))
 
 fit_draws <- parameters %>%
   select(-country, -country_capacity) %>%
@@ -35,11 +46,12 @@ fit_draws <- parameters %>%
   left_join(data.frame(
     pfpr = seq(0, 0.7, 0.01)),
     by = character()) %>%
-  mutate(masapr = pmap_dbl(select(., -sample), gompertz))
+  mutate(masapr = pmap_dbl(select(., -sample), gompertz),
+         smapr = malaria_attributable(masapr, nmsa_all, pfpr))
 
 # Country fits
 country_data <- dhs_masa %>%
-  group_by(country) %>%
+   group_by(country) %>%
   mutate(pfprg = cut_number(pfpr, 4)) %>%
   group_by(country, pfprg) %>%
   summarise(
@@ -49,7 +61,11 @@ country_data <- dhs_masa %>%
     masal = binom::binom.exact(sum(masa), n())$lower,
     masau = binom::binom.exact(sum(masa), n())$upper,
     masa = mean(masa)
-  )
+  ) |>
+  left_join(nmsa_country, by = "country") |>
+  mutate(sma = malaria_attributable(masa, nmsa, pfpr),
+         smal = malaria_attributable(masal, nmsa, pfpr),
+         smau = malaria_attributable(masau, nmsa, pfpr))
 
 country_pfpr_max_bound <- country_data %>%
   select(country, pfpru) %>%
@@ -69,7 +85,9 @@ country_draws <- parameters %>%
   left_join(country_pfpr_max_bound, by = "country") %>%
   filter(pfpr < pfprq) %>%
   select(-pfprq) %>%
-  mutate(masapr = pmap_dbl(select(., -country, -sample), gompertz))
+  mutate(masapr = pmap_dbl(select(., -country, -sample), gompertz)) |>
+  left_join(nmsa_country, by = "country") |>
+  mutate(smapr = malaria_attributable(masapr, nmsa, pfpr))
 
 country_median <- parameters %>%
   group_by(country) %>%
@@ -82,7 +100,9 @@ country_median <- parameters %>%
   left_join(country_pfpr_max_bound, by = "country") %>%
   filter(pfpr < pfprq) %>%
   select(-pfprq) %>%
-  mutate(masapr = pmap_dbl(select(., -country, -sample), gompertz))
+  mutate(masapr = pmap_dbl(select(., -country, -sample), gompertz)) |>
+  left_join(nmsa_country, by = "country") |>
+  mutate(smapr = malaria_attributable(masapr, nmsa, pfpr))
 
 # To order country plots by mean masa prevalence
 country_order <- dhs_masa %>%
@@ -96,12 +116,12 @@ country_median$country <- factor(country_median$country, levels = country_order$
 
 ### Figure 1a model fitted trend ####
 fig1a <- ggplot() +
-  geom_line(data = fit_draws, aes(x = pfpr, y = masapr, group = sample), alpha = 0.2, col = "#00798c") +
-  geom_line(data = fit_median, aes(x = pfpr, y = masapr), col = "#edae49", size = 1) +
+  geom_line(data = fit_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.2, col = "#00798c") +
+  geom_line(data = fit_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
-  ylab(expression(MASA[0.5-5])) + 
+  ylab(expression(SMA[0.5-5])) + 
   theme_bw() +
-  coord_cartesian(ylim = c(0, 0.005))
+  coord_cartesian(ylim = c(0, 0.004))
 
 ### Figure 1b, fit to country data ###
 breaks <- function(){
@@ -122,13 +142,13 @@ breaks <- function(){
 
 country_plot <- function(country_median, country_draws, country_data, nc = 3){
   ggplot() +
-    geom_line(data = country_draws, aes(x = pfpr, y = masapr, group = sample), alpha = 0.1, col = "#00798c") +
-    geom_line(data = country_median, aes(x = pfpr, y = masapr), col = "#edae49", size = 1) +
-    geom_linerange(data = country_data, aes(y = masa, xmin = pfprl, xmax = pfpru), col = "#2e4057") +
-    geom_linerange(data = country_data, aes(x = pfpr, ymin = masal, ymax = masau), col = "#2e4057") +
-    geom_point(data = country_data, aes(x = pfpr, y = masa), col = "#2e4057", size = 0.75) +
+    geom_line(data = country_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.1, col = "#00798c") +
+    geom_line(data = country_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
+    geom_linerange(data = country_data, aes(y = sma, xmin = pfprl, xmax = pfpru), col = "#2e4057") +
+    geom_linerange(data = country_data, aes(x = pfpr, ymin = smal, ymax = smau), col = "#2e4057") +
+    geom_point(data = country_data, aes(x = pfpr, y = sma), col = "#2e4057", size = 0.75) +
     xlab(expression(~italic(Pf)~Pr[2-10])) +
-    ylab(expression(MASA[0.5-5])) + 
+    ylab(expression(SMA[0.5-5])) + 
     scale_x_continuous(breaks = breaks()) +
     theme_bw() +
     facet_wrap(~ country, ncol = nc, scales = "free") +
@@ -155,5 +175,4 @@ fig1b <- (fig1a + theme(axis.title.x = element_blank()) | cp1 + theme(axis.title
 fig1 <- (fig1b / cp2) + plot_layout(heights = c(2, 3.5))
 
 ggsave("ignore/figures_tables/dhs_fit.png", fig1, width = 9, height = 7, scale = 0.75)
-ggsave("ignore/figures_tables/dhs_fit.pdf", fig1, width = 9, height = 7, scale = 0.75)
 
