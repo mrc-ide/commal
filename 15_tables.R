@@ -15,11 +15,9 @@ p4 <-  readRDS("ignore/prob_hosp/mcmc_fits/parameters_sensitivity_dur.rds") %>%
   mutate(run = "dur")
 p5 <-  readRDS("ignore/prob_hosp/mcmc_fits/parameters_sensitivity_rdt.rds") %>%
   mutate(run = "rdt")
-p6 <-  readRDS("ignore/prob_hosp/mcmc_fits/parameters_sensitivity_non_malaria_sa.rds") %>%
-  mutate(run = "nmsa")
 
-out <- bind_rows(p1, p2, p3, p4, p5, p6) %>%
-  mutate(run = factor(run, levels = c("main", "fever", "rdt", "chronic", "dur", "nmsa"))) 
+out <- bind_rows(p1, p2, p3, p4, p5) %>%
+  mutate(run = factor(run, levels = c("main", "fever", "rdt", "chronic", "dur"))) 
 
 ################################################################################
 ### Probability hospital #######################################################

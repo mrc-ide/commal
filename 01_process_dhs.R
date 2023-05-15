@@ -10,7 +10,7 @@ library(haven)
 source("R/process_dhs.R")
 source("R/dhs_helpers.R")
 
-# DHS survey data cache
+# DHS survey data cache. These data are available on sign-up and request
 dropbox <- "C:/Users/pwinskil/Dropbox (SPH Imperial College)/"
 dhs_cache <- "DHS_severe_malaria_cache/"
 
@@ -37,7 +37,5 @@ for(i in 1:nrow(surveys)){
   )
 }
 data <- bind_rows(data_list)
-nrow(data)
-head(data)
 
 saveRDS(data, "ignore/dhs/processed_data/processed_dhs.RDS")

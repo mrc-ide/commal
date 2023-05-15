@@ -3,10 +3,10 @@
 # Load packages
 library(dplyr)
 
+################################################################################
 ### Format DHS data ############################################################
+################################################################################
 dhs_data_raw <- readRDS("ignore/dhs/processed_data/processed_dhs.RDS")
- 
-1 - (mean(is.na(dhs_data_raw$hb) | (is.na(dhs_data_raw$rdt) & is.na(dhs_data_raw$microscopy))))
 
 dhs_masa <- dhs_data_raw  %>%
   filter(
@@ -16,8 +16,6 @@ dhs_masa <- dhs_data_raw  %>%
   mutate(
     # Severe anaemia
     sa = ifelse(anemia_level == "severe", 1, 0),
-    # Less strict threshold for sa
-    sa2 = ifelse(hb < 7, 1, 0),
     # Malaria and severe anaemia
     masa  = ifelse(anemia_level == "severe" & microscopy == "positive", 1, 0),
     # Malaria and severe anaemia and fevere
@@ -31,7 +29,7 @@ dhs_masa <- dhs_data_raw  %>%
   ) %>%
   rename(pfpr = prevalence) %>%
   dplyr::select(iso, country, cluster, year, weight,
-                pfpr, microscopy, hb, masa, masa_fever, sa, sa2, masa_rdt, rdt, no_tx, gov_hosp)
+                pfpr, microscopy, hb, masa, masa_fever, sa, masa_rdt, rdt, no_tx, gov_hosp)
 
 nrow(dhs_masa)
 length(unique(dhs_masa$country))
@@ -44,8 +42,12 @@ round(100 * weighted.mean(dhs_masa$masa, dhs_masa$weight), 4)
 
 saveRDS(dhs_masa, "ignore/prob_hosp/dhs_masa.rds")
 ################################################################################
+################################################################################
+################################################################################
 
+################################################################################
 ### Estimate expected number of SMA cases (in lieu of full dataset) ############
+################################################################################
 paton_data_raw <- read.csv("ignore/paton/paton_table_data.csv")
 paton_data_extracted <- read.csv("ignore/paton/paton_sma_adjusted_extract.csv")
 
@@ -77,4 +79,6 @@ ggplot(pd, aes(x = site_date, y = sma, col = group)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 saveRDS(paton_data, "ignore/prob_hosp/paton_inferred.rds")
+################################################################################
+################################################################################
 ################################################################################
