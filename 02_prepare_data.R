@@ -2,6 +2,7 @@
 
 # Load packages
 library(dplyr)
+source("R/cascade.R")
 
 ################################################################################
 ### Format DHS data ############################################################
@@ -22,8 +23,8 @@ dhs_masa <- dhs_data_raw  %>%
     masa_fever  = ifelse(anemia_level == "severe" & microscopy == "positive" & fever == "yes", 1, 0),
     # Malaria and severe anaemia, RDT defined
     masa_rdt = case_when(anemia_level == "severe" & rdt == "positive" ~ 1,
-                        rdt == "negative" ~ 0,
-                        anemia_level == "non_severe" ~ 0),
+                         rdt == "negative" ~ 0,
+                         anemia_level == "non_severe" ~ 0),
     # Sample weight
     weight = hh_sample_weight / 10^6
   ) %>%
@@ -39,6 +40,13 @@ tapply(dhs_masa$masa, dhs_masa$country, mean)
 round(100 * weighted.mean(dhs_masa$sa, dhs_masa$weight), 4)
 round(100 * weighted.mean(dhs_masa$microscopy == "positive", dhs_masa$weight), 3)
 round(100 * weighted.mean(dhs_masa$masa, dhs_masa$weight), 4)
+round(100 * 
+        malaria_attributable(
+          weighted.mean(dhs_masa$masa, dhs_masa$weight),
+          weighted.mean(dhs_masa$sa & dhs_masa$microscopy == "negative", dhs_masa$weight),
+          weighted.mean(dhs_masa$pfpr, dhs_masa$weight)
+        ), 4)
+
 
 saveRDS(dhs_masa, "ignore/prob_hosp/dhs_masa.rds")
 ################################################################################
@@ -59,7 +67,7 @@ paton_data <- paton_data_raw %>%
     sma_n_modelled = round((sma_modelled / 1000) * py),
     sma_n_diamond = round((sma_diamond / 1000) * py),
     distance = dist_min + ((dist_max - dist_min) / 2))# %>%
-  #mutate(countryn = as.numeric(factor(country, levels = country_levels)))
+#mutate(countryn = as.numeric(factor(country, levels = country_levels)))
 
 pd <- paton_data  %>%
   mutate(site_date = paste(site, year_start, year_end)) %>%
