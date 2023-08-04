@@ -55,7 +55,7 @@ fit_draws <- parameters %>%
 
 # Country fits
 country_data <- dhs_masa %>%
-   group_by(country) %>%
+  group_by(country) %>%
   mutate(pfprg = cut_number(pfpr, 4)) %>%
   group_by(country, pfprg) %>%
   summarise(
@@ -158,8 +158,8 @@ country_plot <- function(country_median, country_draws, country_data, nc = 3){
   ggplot() +
     geom_line(data = country_draws, aes(x = pfpr, y = smapr, group = sample), alpha = 0.1, col = "#00798c") +
     geom_line(data = country_median, aes(x = pfpr, y = smapr), col = "#edae49", size = 1) +
-    geom_linerange(data = country_data, aes(y = sma, xmin = pfprl, xmax = pfpru), col = "#2e4057") +
-    geom_linerange(data = country_data, aes(x = pfpr, ymin = smal, ymax = smau), col = "#2e4057") +
+    geom_linerange(data = country_data, aes(y = sma, xmin = pfprl, xmax = pfpru), col = "#2e4057", size = 0.4) +
+    geom_linerange(data = country_data, aes(x = pfpr, ymin = smal, ymax = smau), col = "#2e4057", size = 0.4) +
     geom_point(data = country_data, aes(x = pfpr, y = sma), col = "#2e4057", size = 0.75) +
     xlab(expression(~italic(Pf)~Pr[2-10])) +
     ylab(expression(SMA[0.5-5])) + 
@@ -195,6 +195,32 @@ fig1b <- (fig1a + theme(axis.title.x = element_blank()) |
 fig1 <- (fig1b / cp2) + plot_layout(heights = c(2, 3.5))
 
 ggsave("ignore/figures_tables/dhs_fit.png", fig1, width = 9, height = 7, scale = 0.75)
+ggsave("ignore/figures_tables/figure_1_dhs_fit.pdf", fig1, width = 180, height = 140, scale = 1.1, units = "mm")
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
+### Data for source data #######################################################
+################################################################################
+data_source_country_model_median <- country_median |>
+  select(country, pfpr, smapr) |>
+  mutate(
+    output = "modelled",
+    type = "median"
+  )
+data_source_country_model_draw <- country_draws |>
+  select(country, sample, pfpr, smapr) |>
+  mutate(
+    output = "modelled",
+    type = "draw"
+  )
+data_source_country_data_all <- country_data |>
+  select(country, pfpr, pfprl, pfpru, sma, smal, smau)
+
+write.csv(data_source_country_model_median, "ignore/figures_tables/source_data/figure_1_source_country_model_median.csv", row.names = FALSE)
+write.csv(data_source_country_model_draw, "ignore/figures_tables/source_data/figure_1_source_country_model_draws.csv", row.names = FALSE)
+write.csv(data_source_country_data_all, "ignore/figures_tables/source_data/figure_1_source_country_data.csv", row.names = FALSE)
 ################################################################################
 ################################################################################
 ################################################################################

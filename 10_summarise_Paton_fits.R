@@ -118,12 +118,12 @@ global_plot <- ggplot() +
   geom_line(data = median_global_fit, aes(x = pfpr, y = hospital, col = model), col = "#edae49", size = 1) +
   geom_line(data = paton_model_prediction, aes(x = pfpr, y = hospital, col = model), col = "grey20", lty = 2) +
   xlab(expression(~italic(Pf)~Pr[2-10])) +
-  ylab("Annual hospitalised incidence per 1000 children") +
+  ylab("Annual hospitalised incidence \nper 1000 children") +
   theme_bw() +
-  ylim(0, 3.5)
+  ylim(0, 3.6)
 
 ggsave("ignore/figures_tables/Paton_fit.png", global_plot, height = 4, width = 5)
-ggsave("ignore/figures_tables/Paton_fit.pdf", global_plot, height = 4, width = 5)
+ggsave("ignore/figures_tables/figure_2_paton_fit.pdf", global_plot, height = 70, width = 88, units = "mm", scale = 1.3)
 
 
 country_plot <- ggplot() +
@@ -172,6 +172,43 @@ distance_plot <- ggplot() +
   theme_bw()
 
 ggsave("ignore/figures_tables/figS_distance.png", distance_plot, height = 4, width = 4)
+################################################################################
+################################################################################
+################################################################################
+
+################################################################################
+### Data for source data #######################################################
+################################################################################
+source_data_median <- median_global_fit |>
+  select(pfpr, hospital) |>
+  mutate(
+    output = "modelled",
+    type = "median"
+  )
+source_data_draws <- draw_global_fit |>
+  select(sample, pfpr, hospital) |>
+  mutate(
+    output = "modelled",
+    type = "draw"
+  )
+
+source_data_distance_median <- draw_distance_global_fit |>
+  select(-sample) |>
+  mutate(
+    output = "modelled",
+    type = "median"
+  )
+
+source_data_distance_draw <- median_distance_global_fit |>
+  mutate(
+    output = "modelled",
+    type = "draw"
+  )
+
+write.csv(source_data_median, "ignore/figures_tables/source_data/figure_2_source_model_median.csv", row.names = FALSE)
+write.csv(source_data_draws, "ignore/figures_tables/source_data/figure_2_source_model_draws.csv", row.names = FALSE)
+write.csv(source_data_distance_median, "ignore/figures_tables/source_data/figure_S1_source_model_median.csv", row.names = FALSE)
+write.csv(source_data_distance_draw, "ignore/figures_tables/source_data/figure_S1_source_model_draws.csv", row.names = FALSE)
 ################################################################################
 ################################################################################
 ################################################################################

@@ -153,9 +153,23 @@ hospital_summary <- (prob_hosp_plot | inc_plot) +
 
 ggsave("ignore/figures_tables/hospital_summary.png", hospital_summary,
        height = 3, width = 7, scale = 0.8)
-ggsave("ignore/figures_tables/hospital_summary.pdf", hospital_summary,
-       height = 3, width = 7, scale = 0.8)
+ggsave("ignore/figures_tables/figure_3_hospital_summary.pdf", hospital_summary,
+       height = 75, width = 180, units = "mm", scale = 0.9)
 ################################################################################
 ################################################################################
 ################################################################################
 
+################################################################################
+### Data for source data #######################################################
+################################################################################
+source_prob_hosp <- prob_hosp_pd |>
+  select(country, ph)
+
+source_inc <- inc_pd |>
+  select(pfpr, inc, location)
+
+write.csv(source_prob_hosp, "ignore/figures_tables/source_data/figure_3_source_prob_hosp.csv", row.names = FALSE)
+write.csv(source_inc, "ignore/figures_tables/source_data/figure_3_source_model_incidence.csv", row.names = FALSE)
+################################################################################
+################################################################################
+################################################################################
