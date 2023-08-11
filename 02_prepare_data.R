@@ -54,7 +54,7 @@ saveRDS(dhs_masa, "ignore/prob_hosp/dhs_masa.rds")
 ################################################################################
 
 ################################################################################
-### Estimate expected number of SMA cases (in lieu of full dataset) ############
+### Estimate expected number of SMA cases ######################################
 ################################################################################
 paton_data_raw <- read.csv("ignore/paton/paton_table_data.csv")
 paton_data_extracted <- read.csv("ignore/paton/paton_sma_adjusted_extract.csv")
@@ -66,8 +66,7 @@ paton_data <- paton_data_raw %>%
   mutate(
     sma_n_modelled = round((sma_modelled / 1000) * py),
     sma_n_diamond = round((sma_diamond / 1000) * py),
-    distance = dist_min + ((dist_max - dist_min) / 2))# %>%
-#mutate(countryn = as.numeric(factor(country, levels = country_levels)))
+    distance = dist_min + ((dist_max - dist_min) / 2))
 
 pd <- paton_data  %>%
   mutate(site_date = paste(site, year_start, year_end)) %>%

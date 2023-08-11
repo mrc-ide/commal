@@ -1,4 +1,4 @@
-### Figure 3 - Hospitalisation and incidence####################################
+### Figure 3 - Hospitalisation and incidence ###################################
 
 library(dplyr)
 library(tidyr)
