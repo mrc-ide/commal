@@ -1,3 +1,7 @@
+
+[![DOI](https://zenodo.org/badge/418854012.svg)](https://zenodo.org/badge/latestdoi/418854012)
+
+
 A repository to support "Estimating the burden of severe malarial anaemia and access to hospital care in East Africa"
 
 This repository contains scripts and functions to recreate the analysis.
